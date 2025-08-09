@@ -125,6 +125,12 @@ static void set_timeout (void) {
     time_t secs = config.timeout / 1000;
     suseconds_t usecs = (config.timeout % 1000) * 1000;
     
+    // Minimum interval of 1 second
+    if (secs == 0) {
+        secs = 1;
+        usecs = 0;
+    }
+    
     struct itimerval interval = (struct itimerval) {
         .it_interval = (struct timeval) {
             .tv_sec = secs,
