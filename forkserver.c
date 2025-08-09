@@ -13,7 +13,7 @@
 
 int started = 0;
 
-int initialize_forkserver (int pipe_fds[2], ForkserverConfig* config, unsigned int mode) {
+int initialize_forkserver (ForkserverMode mode, int pipe_fds[2], ForkserverConfig* config) {
     /* Get pipe fd */
     char* value = getenv(FORKSERVER_FD_ENV_VAR);
     
@@ -98,7 +98,7 @@ void spawn_forkserver (void) {
         return;
     }
     
-    switch (initialize_forkserver(pipe_fds, &config, FORKSERVER_MODE_FORKSERVER)) {
+    switch (initialize_forkserver(MODE_FORKSERVER, pipe_fds, &config)) {
         case 0: break;
         case 1: panic("forkserver", "Could not initialize forkserver");
         case 2: return;

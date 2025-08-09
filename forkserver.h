@@ -3,8 +3,10 @@
 
 #include <signal.h>
 
-#define FORKSERVER_MODE_FORKSERVER 1
-#define FORKSERVER_MODE_PERSISTENT 2
+typedef enum {
+    MODE_FORKSERVER = 1,
+    MODE_PERSISTENT = 2,
+} ForkserverMode;
 
 typedef struct {
     int timeout; // in ms
@@ -25,7 +27,7 @@ typedef enum {
 
 extern int started;
 
-int initialize_forkserver (int pipe_fds[2], ForkserverConfig* config, unsigned int mode);
+int initialize_forkserver (ForkserverMode mode, int pipe_fds[2], ForkserverConfig* config);
 ForkserverStatus convert_status (ForkserverConfig* config, int status);
 
 #endif

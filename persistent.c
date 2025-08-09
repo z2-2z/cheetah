@@ -152,7 +152,7 @@ int spawn_persistent_loop (size_t iters) {
     
     switch (state) {
         case PERSISTENT_INIT: {
-            switch (initialize_forkserver(pipe_fds, &config, FORKSERVER_MODE_PERSISTENT)) {
+            switch (initialize_forkserver(MODE_PERSISTENT, pipe_fds, &config)) {
                 case 0: break;
                 case 1: panic("persistent mode", "Could not initialize forkserver");
                 case 2: {
