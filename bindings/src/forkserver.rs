@@ -461,4 +461,93 @@ mod tests {
             e => e,
         }
     }
+    
+    #[test]
+    fn bench_afl() -> Result<(), Error> {
+        const MAP_SIZE: usize = 65535;
+        let cores = std::env::var("CORES").unwrap_or_else(|_| "0".to_string());
+        let cores = Cores::from_cmdline(&cores)?;
+        
+        let mut run_client_text = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
+            let mut shmem_provider = UnixShMemProvider::new()?;
+            let mut covmap = shmem_provider.new_shmem(MAP_SIZE)?;
+            unsafe {
+                covmap.write_to_env("__AFL_SHM_ID")?;
+            }
+
+            let edges_observer = unsafe {
+                HitcountsMapObserver::new(StdMapObserver::new("edges", covmap.as_slice_mut())).track_indices()
+            };
+
+            let mut feedback = MaxMapFeedback::new(&edges_observer);
+            
+            let mut objective = feedback_and_fast!(
+                feedback_or!(
+                    CrashFeedback::new(),
+                    TimeoutFeedback::new()
+                ),
+                MaxMapFeedback::with_name("edges_objective", &edges_observer)
+            );
+            
+            let mut state = if let Some(state) = state { 
+                state
+            } else {
+                StdState::new(
+                    StdRand::with_seed(SEED),
+                    InMemoryCorpus::<BytesInput>::new(),
+                    InMemoryCorpus::new(),
+                    &mut feedback,
+                    &mut objective,
+                )?
+            };
+            
+            let mutational_stage = StdMutationalStage::new(NopMutator);
+            
+            let scheduler = QueueScheduler::new();
+            
+            let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
+            
+            let mut executor = ForkserverExecutor::builder()
+                .program(BINARY)
+                .arg("afl++")
+                .env("LD_LIBRARY_PATH", "..")
+                .is_persistent(true)
+                .debug_child(true)
+                .input(InputLocation::StdIn { input_file: None })
+                .coverage_map_size(MAP_SIZE)
+                .min_input_size(0)
+                .build_dynamic_map(edges_observer, tuple_list!())?;
+            
+            if state.must_load_initial_inputs() {
+                fuzzer.add_input(
+                    &mut state,
+                    &mut executor,
+                    &mut mgr,
+                    BytesInput::new(Vec::new()),
+                )?;
+            }
+            
+            let mut stages = tuple_list!(mutational_stage);
+
+            fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
+            
+            Ok(())
+        };
+        
+        let monitor = MultiMonitor::new(|s| println!("{s}"));
+        let shmem_provider = StdShMemProvider::new()?;
+
+        match Launcher::builder()
+            .shmem_provider(shmem_provider)
+            .configuration(EventConfig::AlwaysUnique)
+            .monitor(monitor)
+            .run_client(&mut run_client_text)
+            .cores(&cores)
+            .build()
+            .launch()
+        {
+            Err(Error::ShuttingDown) | Ok(()) => Ok(()),
+            e => e,
+        }
+    }
 }
