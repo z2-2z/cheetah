@@ -329,3 +329,136 @@ impl ForkserverBuilder {
         Forkserver::handshake(handle, pipe, self.timeout, self.signal, self.crash_exit_code)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libafl::prelude::*;
+    use libafl_bolts::prelude::*;
+    use std::borrow::Cow;
+    
+    const BINARY: &str = "../tests/hybrid-client";
+    const SEED: u64 = 1234;
+    
+    #[derive(Default, Debug)]
+    struct NopMutator;
+    
+    impl Named for NopMutator {
+        fn name(&self) -> &Cow<'static, str> {
+            static NAME: Cow<'static, str> = Cow::Borrowed("NopMutator");
+            &NAME
+        }
+    }
+    
+    impl<I, S> Mutator<I, S> for NopMutator {
+        fn mutate(&mut self, _state: &mut S, _input: &mut I) -> Result<MutationResult, Error> {
+            Ok(MutationResult::Mutated)
+        }
+    
+        fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+    
+    #[test]
+    fn bench_libruntime() -> Result<(), Error> {
+        let cores = std::env::var("CORES").unwrap_or_else(|_| "0".to_string());
+        let cores = Cores::from_cmdline(&cores)?;
+        let map_size = crate::get_afl_map_size(BINARY)?;
+        
+        let mut run_client_text = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
+            let mut shmem_provider = UnixShMemProvider::new()?;
+            let mut covmap = shmem_provider.new_shmem(map_size)?;
+            unsafe {
+                covmap.write_to_env("__AFL_SHM_ID")?;
+            }
+            unsafe {
+                std::env::set_var("AFL_MAP_SIZE", format!("{map_size}"));
+            }
+
+            let edges_observer = unsafe {
+                HitcountsMapObserver::new(StdMapObserver::new("edges", covmap.as_slice_mut())).track_indices()
+            };
+
+            let mut feedback = MaxMapFeedback::new(&edges_observer);
+            
+            let mut objective = feedback_and_fast!(
+                feedback_or!(
+                    CrashFeedback::new(),
+                    TimeoutFeedback::new()
+                ),
+                MaxMapFeedback::with_name("edges_objective", &edges_observer)
+            );
+            
+            let mut state = if let Some(state) = state { 
+                state
+            } else {
+                StdState::new(
+                    StdRand::with_seed(SEED),
+                    InMemoryCorpus::<BytesInput>::new(),
+                    InMemoryCorpus::new(),
+                    &mut feedback,
+                    &mut objective,
+                )?
+            };
+            
+            let mutational_stage = StdMutationalStage::new(NopMutator);
+            
+            let scheduler = QueueScheduler::new();
+            
+            let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
+            
+            let mut forkserver = super::Forkserver::builder()
+                .binary(BINARY)
+                .arg("libruntime")
+                .env("LD_LIBRARY_PATH", "..")
+                .timeout(5000)
+                .kill_signal("SIGKILL").unwrap()
+                .output(true)
+                .spawn()?;
+            let mut func = |input: &BytesInput| {
+                assert!(input.is_empty());
+                forkserver.execute_target().unwrap()
+            };
+            let mut executor = InProcessExecutor::new(
+                &mut func,
+                tuple_list!(edges_observer),
+                &mut fuzzer,
+                &mut state,
+                &mut mgr,
+            )?;
+            
+            if state.must_load_initial_inputs() {
+                fuzzer.add_input(
+                    &mut state,
+                    &mut executor,
+                    &mut mgr,
+                    BytesInput::new(Vec::new()),
+                )?;
+            }
+            
+            let mut stages = tuple_list!(mutational_stage);
+
+            fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
+            
+            Ok(())
+        };
+        
+        let monitor = MultiMonitor::new(|s| println!("{s}"));
+        let shmem_provider = StdShMemProvider::new()?;
+
+        match Launcher::builder()
+            .shmem_provider(shmem_provider)
+            .configuration(EventConfig::AlwaysUnique)
+            .monitor(monitor)
+            .run_client(&mut run_client_text)
+            .cores(&cores)
+            .build()
+            .launch()
+        {
+            Err(Error::ShuttingDown) | Ok(()) => Ok(()),
+            e => e,
+        }
+    }
+}

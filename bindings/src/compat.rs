@@ -18,6 +18,7 @@ pub fn get_afl_map_size<P: AsRef<Path>>(binary: P) -> Result<usize> {
                 https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/afl-compiler-rt.o.c
                 AFL++ skips the first 5 counters 
              */
+            assert_eq!(sh.sh_size % 4, 0);
             return Ok(5 + sh.sh_size as usize / 4);
         }
     }
