@@ -5,22 +5,25 @@
 #include "utils.h"
 
 __attribute__((noreturn))
-void panic (ForkserverMode mode, const char* message) {
-    const char* mode_str = NULL;
+void panic (ErrorSource source, const char* message) {
+    const char* source_str = NULL;
     
-    switch (mode) {
-        case MODE_FORKSERVER: {
-            mode_str = "Forkserver";
+    switch (source) {
+        case SOURCE_FORKSERVER: {
+            source_str = "Forkserver";
             break;
         }
-        case MODE_PERSISTENT: {
-            mode_str = "Persistent mode";
+        case SOURCE_PERSISTENT: {
+            source_str = "Persistent mode";
             break;
         }
-        default: __builtin_unreachable();
+        case SOURCE_FUZZ_INPUT: {
+            source_str = "Fuzz input";
+            break;
+        }
     }
     
-    fprintf(stderr, "%s runtime failure: %s\n", mode_str, message);
+    fprintf(stderr, "%s runtime failure: %s\n", source_str, message);
     fflush(stderr);
     while (1) abort();
 }

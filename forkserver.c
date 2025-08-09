@@ -52,7 +52,7 @@ ForkserverStatus convert_status (ForkserverConfig* config, int status) {
     } else if (WIFSIGNALED(status)) {
         return STATUS_CRASH;
     } else {
-        panic(MODE_FORKSERVER, "Invalid status from waitpid");
+        panic(SOURCE_FORKSERVER, "Invalid status from waitpid");
     }
 }
 
@@ -71,15 +71,15 @@ static unsigned char wait_for_child (ForkserverConfig* config, pid_t child, sigs
             config->signal = old_signal;
             return STATUS_TIMEOUT;
         } else {
-            panic(MODE_FORKSERVER, "Sigtimedwait failed");
+            panic(SOURCE_FORKSERVER, "Sigtimedwait failed");
         }
     } else if (r == SIGCHLD) {
         if (waitpid(child, &status, 0) != child) {
-            panic(MODE_FORKSERVER, "Waitpid for SIGCHLD failed");
+            panic(SOURCE_FORKSERVER, "Waitpid for SIGCHLD failed");
         }
         return convert_status(config, status);
     } else {
-        panic(MODE_FORKSERVER, "Invalid return code from sigtimedwait");
+        panic(SOURCE_FORKSERVER, "Invalid return code from sigtimedwait");
     }
 }
 
@@ -97,7 +97,7 @@ void spawn_forkserver (void) {
     
     switch (initialize_forkserver(MODE_FORKSERVER, pipe_fds, &config)) {
         case 0: break;
-        case 1: panic(MODE_FORKSERVER, "Could not initialize forkserver");
+        case 1: panic(SOURCE_FORKSERVER, "Could not initialize forkserver");
         case 2: return;
         default: __builtin_unreachable();
     }
@@ -108,7 +108,7 @@ void spawn_forkserver (void) {
         sigaddset(&signals, SIGCHLD) == -1 ||
         sigprocmask(SIG_BLOCK, &signals, NULL) == -1
     ) {
-        panic(MODE_FORKSERVER, "Could not initialize forkserver");
+        panic(SOURCE_FORKSERVER, "Could not initialize forkserver");
     }
     
     timeout = (struct timespec) {
@@ -128,7 +128,7 @@ void spawn_forkserver (void) {
             pid_t child = fork();
         
             if (child < 0) {
-                panic(MODE_FORKSERVER, "Could not fork");
+                panic(SOURCE_FORKSERVER, "Could not fork");
             } else if (child == 0) {
                 close(pipe_fds[0]);
                 close(pipe_fds[1]);
@@ -142,7 +142,7 @@ void spawn_forkserver (void) {
                 }
             }
         } else {
-            panic(MODE_FORKSERVER, "Invalid command from fuzzer");
+            panic(SOURCE_FORKSERVER, "Invalid command from fuzzer");
         }
     }
     

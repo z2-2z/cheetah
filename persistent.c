@@ -143,7 +143,7 @@ static void set_timeout (void) {
     };
     
     if (setitimer(ITIMER_REAL, &interval, NULL) == -1) {
-        panic(MODE_PERSISTENT, "Could not set timer");
+        panic(SOURCE_PERSISTENT, "Could not set timer");
     }
 }
 
@@ -161,7 +161,7 @@ int spawn_persistent_loop (size_t iters) {
         case PERSISTENT_INIT: {
             switch (initialize_forkserver(MODE_PERSISTENT, pipe_fds, &config)) {
                 case 0: break;
-                case 1: panic(MODE_PERSISTENT, "Could not initialize forkserver");
+                case 1: panic(SOURCE_PERSISTENT, "Could not initialize forkserver");
                 case 2: {
                     state = PERSISTENT_STOP;
                     return 1;
@@ -171,7 +171,7 @@ int spawn_persistent_loop (size_t iters) {
             
             err = initialize_persistent_mode();
             if (err) {
-                panic(MODE_PERSISTENT, "Could not initialize persistent mode");
+                panic(SOURCE_PERSISTENT, "Could not initialize persistent mode");
             }
             
             iterations = iters;
@@ -189,7 +189,7 @@ int spawn_persistent_loop (size_t iters) {
                     child = fork();
         
                     if (child < 0) {
-                        panic(MODE_PERSISTENT, "Could not fork");
+                        panic(SOURCE_PERSISTENT, "Could not fork");
                     } else if (child == 0) {
                         state = PERSISTENT_ITER;
                         
@@ -202,7 +202,7 @@ int spawn_persistent_loop (size_t iters) {
                         return 1;
                     } else {
                         if (waitpid(child, &status, 0) != child) {
-                            panic(MODE_PERSISTENT, "Waitpid failed");
+                            panic(SOURCE_PERSISTENT, "Waitpid failed");
                         }
                         
                         if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
@@ -215,7 +215,7 @@ int spawn_persistent_loop (size_t iters) {
                         }
                     }
                 } else {
-                    panic(MODE_PERSISTENT, "Invalid command in parent");
+                    panic(SOURCE_PERSISTENT, "Invalid command in parent");
                 }
             }
             
@@ -249,7 +249,7 @@ int spawn_persistent_loop (size_t iters) {
                 clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
                 return 1;
             } else {
-                panic(MODE_PERSISTENT, "Invalid command in child");
+                panic(SOURCE_PERSISTENT, "Invalid command in child");
             }
         }
         case PERSISTENT_STOP: {
