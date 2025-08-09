@@ -7,10 +7,6 @@
 #include "forkserver.h"
 #include "utils.h"
 
-#define FORKSERVER_FD_ENV_VAR "__FORKSERVER_FD"
-#define FORKSERVER_MAGIC   0xDEAD0000
-#define FORKSERVER_VERSION 1
-
 int started = 0;
 
 int initialize_forkserver (ForkserverMode mode, int pipe_fds[2], ForkserverConfig* config) {

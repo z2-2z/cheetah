@@ -3,6 +3,10 @@
 
 #include <signal.h>
 
+#define FORKSERVER_FD_ENV_VAR "__FORKSERVER_FD"
+#define FORKSERVER_MAGIC   0xDEAD0000
+#define FORKSERVER_VERSION 1
+
 typedef enum {
     MODE_FORKSERVER = 1,
     MODE_PERSISTENT = 2,
