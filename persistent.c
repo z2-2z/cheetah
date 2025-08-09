@@ -184,9 +184,14 @@ int spawn_persistent_loop (size_t iters) {
                     if (child < 0) {
                         panic(MODE_PERSISTENT, "Could not fork");
                     } else if (child == 0) {
-                        set_timeout();
                         state = PERSISTENT_ITER;
+                        
+                        if (iterations > 0) {
+                            iterations -= 1;
+                        }
+                        
                         clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
+                        set_timeout();
                         return 1;
                     } else {
                         if (waitpid(child, &status, 0) != child) {
@@ -210,6 +215,7 @@ int spawn_persistent_loop (size_t iters) {
             // Assume fuzzer has exited
             if (child > 0) {
                 kill(child, SIGKILL);
+                waitpid(child, NULL, WNOHANG);
             }
             _Exit(0);
         }
