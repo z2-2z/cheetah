@@ -80,19 +80,6 @@ static void initialize_fuzz_data (void) {
 }
 
 __attribute__((visibility("default")))
-unsigned char* fuzz_input_remaining_data (void) {
-    initialize_fuzz_data();
-    
-    size_t cursor = shm->cursor;
-    
-    if (cursor >= shm->length) {
-        return NULL;
-    } else {
-        return (unsigned char*) &shm->data[cursor];
-    }
-}
-
-__attribute__((visibility("default")))
 unsigned char* fuzz_input_data (void) {
     initialize_fuzz_data();
     
@@ -100,31 +87,6 @@ unsigned char* fuzz_input_data (void) {
         return NULL;
     } else {
         return (unsigned char*) &shm->data[0];
-    }
-}
-
-__attribute__((visibility("default")))
-unsigned char* fuzz_input_consume (size_t n, size_t* ret_len) {
-    initialize_fuzz_data();
-    
-    size_t cursor = shm->cursor;
-    size_t length = shm->length;
-    unsigned char* data = (unsigned char*) &shm->data[cursor];
-    size_t old_cursor = cursor;
-    
-    if (cursor + n < cursor || cursor + n > length) {
-        cursor = length;
-    } else {
-        cursor += length;
-    }
-    
-    if (cursor > old_cursor) {
-        shm->cursor = cursor;
-        *ret_len = cursor - old_cursor;
-        return data;
-    } else {
-        *ret_len = 0;
-        return NULL;
     }
 }
 
