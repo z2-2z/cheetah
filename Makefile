@@ -1,5 +1,5 @@
 CC ?= clang
-INTERNAL_CFLAGS=-Wall -Wextra -Wpedantic -O3 -fvisibility=hidden -s -fPIC -shared
+INTERNAL_CFLAGS=-Wall -Wextra -Wpedantic -O3 -march=native -flto -fomit-frame-pointer -fno-stack-protector -fvisibility=hidden -s -fPIC -shared
 
 C_SOURCES=$(wildcard *.c)
 H_SOURCES=$(wildcard *.h)
