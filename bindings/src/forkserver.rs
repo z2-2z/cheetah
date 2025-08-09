@@ -296,15 +296,28 @@ impl ForkserverBuilder {
             command.stderr(Stdio::null());
         }
         
+        let mut has_ld_bind_now = false;
+        let mut has_lsan_options = false;
+        let mut has_asan_options = false;
+        
+        for (key, _) in &self.env {
+            match key.as_os_str().to_str() {
+                Some("LD_BIND_NOW") => has_ld_bind_now = true,
+                Some("LSAN_OPTIONS") => has_lsan_options = true,
+                Some("ASAN_OPTIONS") => has_asan_options = true,
+                _ => {},
+            }
+        }
+        
         command.envs(self.env);
         
-        if std::env::var("LD_BIND_NOW").is_err() {
+        if !has_ld_bind_now && std::env::var("LD_BIND_NOW").is_err() {
             command.env("LD_BIND_NOW", "1");
         }
-        if std::env::var("LSAN_OPTIONS").is_err() {
+        if !has_lsan_options && std::env::var("LSAN_OPTIONS").is_err() {
             command.env("LSAN_OPTIONS", "exitcode=23");
         }
-        if std::env::var("ASAN_OPTIONS").is_err() {
+        if !has_asan_options && std::env::var("ASAN_OPTIONS").is_err() {
             command.env("ASAN_OPTIONS", "detect_leaks=1:abort_on_error=1:halt_on_error=1:symbolize=0:detect_stack_use_after_return=1:max_malloc_fill_size=1073741824");
         }
         
