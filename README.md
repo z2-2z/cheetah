@@ -3,8 +3,9 @@
 My high-performance fuzzer runtime that implements a forkserver, persistent mode and passing fuzz inputs
 over shared memory.
 
-### Features
+## Features
 - Persistent mode with 85% less overhead than AFL++ while maintaining the same feature set
+- Compatible with AFL++'s instrumentation
 - Rust bindings for LibAFL integration
 
 ## Usage
