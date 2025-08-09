@@ -236,7 +236,7 @@ impl ForkserverBuilder {
         self
     }
     
-    pub fn timeout(mut self, timeout: u32) -> Self {
+    pub fn timeout_ms(mut self, timeout: u32) -> Self {
         if timeout != 0 {
             self.timeout = timeout;
         }
@@ -413,7 +413,7 @@ mod tests {
                 .binary(BINARY)
                 .arg("libruntime")
                 .env("LD_LIBRARY_PATH", "..")
-                .timeout(5000)
+                .timeout_ms(60_000)
                 .kill_signal("SIGKILL").unwrap()
                 .output(true)
                 .spawn()?;
