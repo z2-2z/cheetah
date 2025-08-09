@@ -7,3 +7,5 @@ edition = "2024"
 libafl = { version = "0.15.3", features = ["prelude"] }
 libafl_bolts = { version = "0.15.3", features = ["prelude"] }
 nix = "0.29.0"
+goblin = "0.10"
+memmap2 = "0.9"
