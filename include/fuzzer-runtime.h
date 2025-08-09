@@ -11,7 +11,7 @@ int spawn_persistent_loop (size_t iterations);
 
 unsigned char* fuzz_input_remaining_data (void);
 unsigned char* fuzz_input_all_data (void);
-size_t fuzz_input_len (void);
 unsigned char* fuzz_input_consume (size_t n, size_t* ret_len);
+size_t fuzz_input_len (void);
 
 #endif /* __FUZZER_RUNTIME */
