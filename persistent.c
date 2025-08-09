@@ -152,19 +152,14 @@ int spawn_persistent_loop (size_t iters) {
     
     switch (state) {
         case PERSISTENT_INIT: {
-            switch (initialize_forkserver(pipe_fds)) {
+            switch (initialize_forkserver(pipe_fds, &config, FORKSERVER_MODE_PERSISTENT)) {
                 case 0: break;
-                case 1: panic("persistent mode", "Could not initialize persistent forkserver");
+                case 1: panic("persistent mode", "Could not initialize forkserver");
                 case 2: {
                     state = PERSISTENT_STOP;
                     return 1;
                 };
                 default: __builtin_unreachable();
-            }
-            
-            err = forkserver_handshake(pipe_fds, &config, FORKSERVER_MODE_PERSISTENT);
-            if (err) {
-                panic("persistent mode", "Could not do forkserver handshake");
             }
             
             err = initialize_persistent_mode();

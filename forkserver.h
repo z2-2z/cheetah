@@ -25,8 +25,7 @@ typedef enum {
 
 extern int started;
 
-int initialize_forkserver (int pipe_fds[2]);
-int forkserver_handshake (int pipe[2], ForkserverConfig* config, unsigned int mode);
+int initialize_forkserver (int pipe_fds[2], ForkserverConfig* config, unsigned int mode);
 ForkserverStatus convert_status (ForkserverConfig* config, int status);
 
 #endif

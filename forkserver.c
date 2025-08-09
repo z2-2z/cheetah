@@ -17,7 +17,7 @@
 
 int started = 0;
 
-int initialize_forkserver (int pipe_fds[2]) {
+int initialize_forkserver (int pipe_fds[2], ForkserverConfig* config, unsigned int mode) {
     /* Get pipe fd */
     char* value = getenv(FORKSERVER_FD_ENV_VAR);
     
@@ -35,19 +35,14 @@ int initialize_forkserver (int pipe_fds[2]) {
     pipe_fds[0] = fd;
     pipe_fds[1] = fd + 1;
     
-    return 0;
-}
-
-int forkserver_handshake (int pipe[2], ForkserverConfig* config, unsigned int mode) {
-    int err;
+    /* Do the handshake */
     unsigned int ident = FORKSERVER_MAGIC | FORKSERVER_VERSION | mode;
-    
-    err = write_all(pipe[1], (void*) &ident, sizeof(ident));
+    int err = write_all(pipe_fds[1], (void*) &ident, sizeof(ident));
     if (err) {
         return err;
     }
     
-    return read_all(pipe[0], (void*) config, sizeof(*config));
+    return read_all(pipe_fds[0], (void*) config, sizeof(*config));
 }
 
 ForkserverStatus convert_status (ForkserverConfig* config, int status) {
@@ -107,15 +102,7 @@ void spawn_forkserver (void) {
         return;
     }
     
-    // Create signal set for timedwait
-    if (sigemptyset(&signals) == -1 ||
-        sigaddset(&signals, SIGCHLD) == -1 ||
-        sigprocmask(SIG_BLOCK, &signals, NULL) == -1
-    ) {
-        panic("forkserver", "Could not initialize forkserver");
-    }
-    
-    switch (initialize_forkserver(pipe_fds)) {
+    switch (initialize_forkserver(pipe_fds, &config, FORKSERVER_MODE_FORKSERVER)) {
         case 0: break;
         case 1: panic("forkserver", "Could not initialize forkserver");
         case 2: return;
@@ -124,9 +111,11 @@ void spawn_forkserver (void) {
     
     started = 1;
     
-    err = forkserver_handshake(pipe_fds, &config, FORKSERVER_MODE_FORKSERVER);
-    if (err) {
-        panic("forkserver", "Could not do forkserver handshake");
+    if (sigemptyset(&signals) == -1 ||
+        sigaddset(&signals, SIGCHLD) == -1 ||
+        sigprocmask(SIG_BLOCK, &signals, NULL) == -1
+    ) {
+        panic("forkserver", "Could not initialize forkserver");
     }
     
     timeout = (struct timespec) {
