@@ -3,8 +3,9 @@
 
 #include <stddef.h>
 #include <time.h>
+#include "forkserver.h"
 
-__attribute__((noreturn)) void panic (const char* mode, const char* message);
+__attribute__((noreturn)) void panic (ForkserverMode mode, const char* message);
 int write_all (int fd, void* buf, size_t count);
 int read_all (int fd, void* buf, size_t count);
 time_t duration_ms (struct timespec* start, struct timespec* end);

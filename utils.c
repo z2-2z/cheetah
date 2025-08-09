@@ -5,8 +5,22 @@
 #include "utils.h"
 
 __attribute__((noreturn))
-void panic (const char* mode, const char* message) {
-    fprintf(stderr, "%s runtime failure: %s\n", mode, message);
+void panic (ForkserverMode mode, const char* message) {
+    const char* mode_str = NULL;
+    
+    switch (mode) {
+        case MODE_FORKSERVER: {
+            mode_str = "Forkserver";
+            break;
+        }
+        case MODE_PERSISTENT: {
+            mode_str = "Persistent mode";
+            break;
+        }
+        default: __builtin_unreachable();
+    }
+    
+    fprintf(stderr, "%s runtime failure: %s\n", mode_str, message);
     fflush(stderr);
     while (1) abort();
 }
