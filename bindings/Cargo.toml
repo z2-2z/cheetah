@@ -1,0 +1,9 @@
+[package]
+name = "fuzzer_runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libafl = { version = "0.15.3", features = ["prelude"] }
+libafl_bolts = { version = "0.15.3", features = ["prelude"] }
+nix = "0.29.0"
