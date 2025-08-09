@@ -3,7 +3,9 @@ CFLAGS=-g -O0 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined,address -fsa
 LDFLAGS=-L.. -lruntime
 LIBRUNTIME=../libruntime.so
 
-all: test-persistent hybrid-client shmem-echo
+BINARIES=test-persistent hybrid-client shmem-echo
+
+all: $(BINARIES)
 
 shmem-echo: shmem-echo.c
 	$(CC) -o $@ $(CFLAGS) $< $(LDFLAGS)
@@ -17,3 +19,7 @@ hybrid-client: hybrid-client.c
 
 $(LIBRUNTIME):
 	$(MAKE) -C ..
+
+.PHONY: clean
+clean:
+	@rm -fv $(BINARIES)
