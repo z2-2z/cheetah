@@ -365,7 +365,7 @@ mod tests {
     fn bench_libruntime() -> Result<(), Error> {
         let cores = std::env::var("CORES").unwrap_or_else(|_| "0".to_string());
         let cores = Cores::from_cmdline(&cores)?;
-        let map_size = crate::get_afl_map_size(BINARY)?;
+        let map_size = std::cmp::max(64, crate::get_afl_map_size(BINARY)?);
         
         let mut run_client_text = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
             let mut shmem_provider = UnixShMemProvider::new()?;
