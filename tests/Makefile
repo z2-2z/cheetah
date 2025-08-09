@@ -3,7 +3,10 @@ CFLAGS=-g -O0 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined,address -fsa
 LDFLAGS=-L.. -lruntime
 LIBRUNTIME=../libruntime.so
 
-all: test-persistent hybrid-client
+all: test-persistent hybrid-client shmem-echo
+
+shmem-echo: shmem-echo.c
+	$(CC) -o $@ $(CFLAGS) $< $(LDFLAGS)
 
 test-persistent: test-persistent.c
 	$(CC) -o $@ $(CFLAGS) $< $(LDFLAGS)

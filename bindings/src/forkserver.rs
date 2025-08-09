@@ -1,4 +1,5 @@
 use libafl::prelude::{Error, ExitKind};
+use libafl_bolts::prelude::{UnixShMemProvider, ShMemProvider, ShMem, UnixShMem, AsSliceMut};
 use std::ffi::OsString;
 use nix::{
     sys::signal::{Signal, kill},
@@ -87,12 +88,19 @@ impl From<u32> for ForkserverMode {
     }
 }
 
+#[repr(C)]
+struct InputChannelMetadata {
+    cursor: usize,
+    length: usize,
+}
+
 #[derive(Debug)]
 pub struct Forkserver {
     child: Child,
     mode: ForkserverMode,
     pipe: (PipeReader, PipeWriter),
     signal: Signal,
+    shmem: Option<UnixShMem>,
 }
 
 impl Forkserver {
@@ -104,7 +112,7 @@ impl Forkserver {
         &self.mode
     }
     
-    fn handshake(child: Child, pipe: (i32, i32), mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>) -> Result<Self, Error> {
+    fn handshake(child: Child, pipe: (i32, i32), mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
         let mut pipe = unsafe {
             (
                 PipeReader::from_raw_fd(pipe.0),
@@ -147,6 +155,7 @@ impl Forkserver {
             mode,
             pipe,
             signal,
+            shmem,
         })
     }
     
@@ -178,6 +187,40 @@ impl Forkserver {
         self.launch_target()?;
         self.collect_status()
     }
+    
+    pub fn input_channel_write<D: AsRef<[u8]>>(&mut self, data: D) -> usize {
+        const OFFSET: usize = size_of::<InputChannelMetadata>();
+        
+        let data = data.as_ref();
+        let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
+        let length = std::cmp::min(
+            shmem.len() - OFFSET,
+            data.len()
+        );
+        
+        unsafe {
+            let header = shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
+            (*header).cursor = 0;
+            (*header).length = length;
+        }
+        shmem.as_slice_mut()[OFFSET..OFFSET + length].copy_from_slice(&data[..length]);
+        
+        length
+    }
+    
+    pub fn input_channel_get_data(&mut self) -> &mut [u8] {
+        let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
+        &mut shmem.as_slice_mut()[size_of::<InputChannelMetadata>()..]
+    }
+    
+    pub fn input_channel_set_len(&mut self, length: usize) {
+        let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
+        unsafe {
+            let header = shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
+            (*header).cursor = 0;
+            (*header).length = length;
+        }
+    }
 }
 
 pub struct ForkserverBuilder {
@@ -189,6 +232,7 @@ pub struct ForkserverBuilder {
     output: bool,
     crash_exit_code: Vec<u8>,
     forkserver_fd: i32,
+    shmem_size: Option<usize>,
 }
 
 impl Default for ForkserverBuilder {
@@ -202,6 +246,7 @@ impl Default for ForkserverBuilder {
             output: false,
             crash_exit_code: Vec::new(),
             forkserver_fd: -1,
+            shmem_size: None,
         }
     }
 }
@@ -262,6 +307,11 @@ impl ForkserverBuilder {
         self
     }
     
+    pub fn use_shmem(mut self, mapping_size: usize) -> Self {
+        self.shmem_size = Some(std::cmp::max(4096, mapping_size));
+        self
+    }
+    
     fn setup_pipes(&mut self) -> Result<(i32, i32), Error> {
         let pipe_forward = create_pipe()?;
         let pipe_backward = create_pipe()?;
@@ -281,8 +331,22 @@ impl ForkserverBuilder {
         Ok((pipe_backward.0, pipe_forward.1))
     }
     
+    fn setup_shm(&mut self) -> Result<Option<UnixShMem>, Error> {
+        if let Some(shmem_size) = &self.shmem_size {
+            let mut shmem_provider = UnixShMemProvider::new()?;
+            let shmem = shmem_provider.new_shmem(size_of::<InputChannelMetadata>() + *shmem_size)?;
+            unsafe {
+                shmem.write_to_env("__FUZZ_INPUT_SHM")?;
+            }
+            Ok(Some(shmem))
+        } else {
+            Ok(None)
+        }
+    }
+    
     pub fn spawn(mut self) -> Result<Forkserver, Error> {
         let pipe = self.setup_pipes()?;
+        let shmem = self.setup_shm()?;
         let binary = self.binary.expect("No binary given to forkserver");
         
         let mut command = Command::new(binary);
@@ -326,7 +390,7 @@ impl ForkserverBuilder {
         close(self.forkserver_fd)?;
         close(self.forkserver_fd + 1)?;
         
-        Forkserver::handshake(handle, pipe, self.timeout, self.signal, self.crash_exit_code)
+        Forkserver::handshake(handle, pipe, self.timeout, self.signal, self.crash_exit_code, shmem)
     }
 }
 
@@ -549,5 +613,26 @@ mod tests {
             Err(Error::ShuttingDown) | Ok(()) => Ok(()),
             e => e,
         }
+    }
+    
+    #[test]
+    fn test_shmem_echo() {
+        let mut forkserver = super::Forkserver::builder()
+            .binary("../tests/shmem-echo")
+            .env("LD_LIBRARY_PATH", "..")
+            .timeout_ms(60_000)
+            .kill_signal("SIGKILL").unwrap()
+            .output(true)
+            .use_shmem(4096)
+            .spawn().unwrap();
+        
+        forkserver.input_channel_write(b"Test123");
+        forkserver.execute_target().unwrap();
+        
+        forkserver.input_channel_write(b"Test");
+        forkserver.execute_target().unwrap();
+        
+        forkserver.input_channel_write(b"");
+        forkserver.execute_target().unwrap();
     }
 }
