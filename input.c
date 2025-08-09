@@ -93,7 +93,7 @@ unsigned char* fuzz_input_remaining_data (void) {
 }
 
 __attribute__((visibility("default")))
-unsigned char* fuzz_input_all_data (void) {
+unsigned char* fuzz_input_data (void) {
     initialize_fuzz_data();
     
     if (shm->length == 0) {
