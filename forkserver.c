@@ -8,12 +8,8 @@
 #include "utils.h"
 
 #define FORKSERVER_FD_ENV_VAR "__FORKSERVER_FD"
-
-#define FORKSERVER_MAGIC_MASK   0xFFFF0000
-#define FORKSERVER_VERSION_MASK 0x0000FF00
-#define FORKSERVER_MODE_MASK    0x000000FF
 #define FORKSERVER_MAGIC   0xDEAD0000
-#define FORKSERVER_VERSION 0x0100
+#define FORKSERVER_VERSION 1
 
 int started = 0;
 
@@ -36,7 +32,7 @@ int initialize_forkserver (int pipe_fds[2], ForkserverConfig* config, unsigned i
     pipe_fds[1] = fd + 1;
     
     /* Do the handshake */
-    unsigned int ident = FORKSERVER_MAGIC | FORKSERVER_VERSION | mode;
+    unsigned int ident = FORKSERVER_MAGIC | (FORKSERVER_VERSION << 8) | mode;
     int err = write_all(pipe_fds[1], (void*) &ident, sizeof(ident));
     if (err) {
         return err;
