@@ -13,7 +13,6 @@ typedef enum {
 
 static size_t iterations;
 static int pipe_fds[2];
-static sigset_t signals;
 static ForkserverConfig config;
 static struct timespec start_time;
 static PersistentState state = PERSISTENT_INIT;
@@ -121,9 +120,9 @@ static int initialize_persistent_mode (void) {
     return 0;
 }
 
-static void set_timeout (ForkserverConfig* config) {
-    time_t secs = config->timeout / 1000;
-    suseconds_t usecs = (config->timeout % 1000) * 1000;
+static void set_timeout (void) {
+    time_t secs = config.timeout / 1000;
+    suseconds_t usecs = (config.timeout % 1000) * 1000;
     
     struct itimerval interval = (struct itimerval) {
         .it_interval = (struct timeval) {
@@ -153,7 +152,7 @@ int spawn_persistent_loop (size_t iters) {
     
     switch (state) {
         case PERSISTENT_INIT: {
-            switch (initialize_forkserver(pipe_fds, &signals)) {
+            switch (initialize_forkserver(pipe_fds)) {
                 case 0: break;
                 case 1: panic("persistent mode", "Could not initialize persistent forkserver");
                 case 2: {
@@ -190,7 +189,7 @@ int spawn_persistent_loop (size_t iters) {
                     if (child < 0) {
                         panic("persistent mode", "Could not fork");
                     } else if (child == 0) {
-                        set_timeout(&config);
+                        set_timeout();
                         state = PERSISTENT_ITER;
                         clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
                         return 1;

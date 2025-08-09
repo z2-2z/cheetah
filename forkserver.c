@@ -17,7 +17,7 @@
 
 int started = 0;
 
-int initialize_forkserver (int pipe_fds[2], sigset_t* signals) {
+int initialize_forkserver (int pipe_fds[2]) {
     /* Get pipe fd */
     char* value = getenv(FORKSERVER_FD_ENV_VAR);
     
@@ -34,14 +34,6 @@ int initialize_forkserver (int pipe_fds[2], sigset_t* signals) {
     
     pipe_fds[0] = fd;
     pipe_fds[1] = fd + 1;
-    
-    /* Create signal set for timedwait */
-    if (sigemptyset(signals) == -1 ||
-        sigaddset(signals, SIGCHLD) == -1 ||
-        sigprocmask(SIG_BLOCK, signals, NULL) == -1
-    ) {
-        return 1;
-    }
     
     return 0;
 }
@@ -115,7 +107,15 @@ void spawn_forkserver (void) {
         return;
     }
     
-    switch (initialize_forkserver(pipe_fds, &signals)) {
+    // Create signal set for timedwait
+    if (sigemptyset(&signals) == -1 ||
+        sigaddset(&signals, SIGCHLD) == -1 ||
+        sigprocmask(SIG_BLOCK, &signals, NULL) == -1
+    ) {
+        panic("forkserver", "Could not initialize forkserver");
+    }
+    
+    switch (initialize_forkserver(pipe_fds)) {
         case 0: break;
         case 1: panic("forkserver", "Could not initialize forkserver");
         case 2: return;
