@@ -90,7 +90,6 @@ impl From<u32> for ForkserverMode {
 
 #[repr(C)]
 struct InputChannelMetadata {
-    cursor: usize,
     length: usize,
 }
 
@@ -200,7 +199,6 @@ impl Forkserver {
         
         unsafe {
             let header = shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
-            (*header).cursor = 0;
             (*header).length = length;
         }
         shmem.as_slice_mut()[OFFSET..OFFSET + length].copy_from_slice(&data[..length]);
@@ -217,7 +215,6 @@ impl Forkserver {
         let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
         unsafe {
             let header = shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
-            (*header).cursor = 0;
             (*header).length = length;
         }
     }

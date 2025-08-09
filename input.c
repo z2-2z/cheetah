@@ -15,7 +15,6 @@
 #endif
 
 typedef struct {
-    size_t cursor;
     size_t length;
     unsigned char data[];
 } FuzzInput;
@@ -72,7 +71,6 @@ static void initialize_fuzz_data (void) {
         /* Use stdin as input */
         size_t input_len = 0;
         shm = (volatile FuzzInput*) consume_stdin(&input_len);
-        shm->cursor = 0;
         shm->length = input_len;
     }
     
@@ -93,13 +91,5 @@ unsigned char* fuzz_input_data (void) {
 __attribute__((visibility("default")))
 size_t fuzz_input_len (void) {
     initialize_fuzz_data();
-    
-    size_t cursor = shm->cursor;
-    size_t length = shm->length;
-    
-    if (cursor >= length) {
-        return 0;
-    } else {
-        return length - cursor;
-    }
+    return shm->length;
 }
