@@ -5,7 +5,7 @@
 #include "include/fuzzer-runtime.h"
 #include "forkserver.h"
 #include "utils.h"
-#include "ipc/ipc.h"
+#include "ipc.h"
 
 typedef enum {
     PERSISTENT_INIT,

@@ -1,8 +1,7 @@
 CC ?= clang
 INTERNAL_CFLAGS=-Wall -Wextra -Wpedantic -O3 -march=native -flto -fomit-frame-pointer -fno-stack-protector -fvisibility=hidden -s -fPIC -shared
-IPC=shm
 
-C_SOURCES=$(wildcard *.c) ipc/$(IPC).c
+C_SOURCES=$(wildcard *.c)
 H_SOURCES=$(wildcard *.h) $(wildcard include/*.h)
 
 libruntime.so: $(C_SOURCES) $(H_SOURCES)

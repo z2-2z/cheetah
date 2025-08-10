@@ -7,7 +7,7 @@
 #include "include/fuzzer-runtime.h"
 #include "forkserver.h"
 #include "utils.h"
-#include "ipc/ipc.h"
+#include "ipc.h"
 
 int started = 0;
 

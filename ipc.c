@@ -4,7 +4,7 @@
 #include <sys/shm.h>
 #include <errno.h>
 
-#include "../utils.h"
+#include "utils.h"
 #include "ipc.h"
 
 #define FORKSERVER_SHM_ENV_VAR "__FORKSERVER_SHM"
