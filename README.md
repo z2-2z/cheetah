@@ -35,11 +35,11 @@ Then, you can make use of the following API:
 
 ## Benchmark
 On my `Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz` I get the following results when measuring the overhead of the
-persistent loop:
+following persistent loop implementations:
 
 ![](./results.png)
 
-The benchmark measures the `exec/sec` for empty persistent loops:
+The benchmark measures the `exec/sec` of targets with an empty persistent loop:
 ```c
 __AFL_INIT();
 while (__AFL_LOOP((unsigned int) 0xFFFFFFFF));
@@ -48,11 +48,16 @@ and
 ```c
 while (spawn_persistent_loop(MAX_ITERATIONS));
 ```
+respectively.
+
 The fuzzers for each target are built with LibAFL and are designed to be
 as similar as possible. They only differ in the `Executor` in use.
 For the AFL++ setup, a `ForkserverExecutor` with shared-memory testcases
 was used and for the Cheetah setup, an `InProcessExecutor` was used that
-utilized Cheetah's rust bindings directly.
+utilized Cheetah's rust bindings directly. Both fuzzers were given the
+same seed and were prevented from doing any input generation.
+A `NopMutator` was created that leaves the seed inputs unmodified and
+the corpus consists of a single, empty file.
 
 The exact setup is:
 ```
