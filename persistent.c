@@ -161,11 +161,11 @@ int spawn_persistent_loop (size_t iters) {
         case PERSISTENT_INIT: {
             switch (forkserver_handshake(MODE_PERSISTENT, &config)) {
                 case 0: break;
-                case 2: {
+                case 1: {
                     state = PERSISTENT_STOP;
                     return 1;
                 };
-                default: panic(SOURCE_PERSISTENT, "Could not do forkserver handshake");
+                default: __builtin_unreachable();
             }
             
             err = initialize_persistent_mode();
@@ -177,10 +177,7 @@ int spawn_persistent_loop (size_t iters) {
             started = 1;
             
             while (1) {
-                err = ipc_read(&c, sizeof(c));
-                if (err) {
-                    break;
-                }
+                ipc_read(&c, sizeof(c));
                 
                 if (c == COMMAND_STOP) {
                     break;
@@ -206,11 +203,7 @@ int spawn_persistent_loop (size_t iters) {
                         
                         if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
                             c = convert_status(&config, status);
-                        
-                            err = ipc_write(&c, sizeof(c));
-                            if (err) {
-                                break;
-                            }
+                            ipc_write(&c, sizeof(c));
                         }
                     }
                 } else {
@@ -232,16 +225,13 @@ int spawn_persistent_loop (size_t iters) {
             }
             
             c = STATUS_EXIT;
-            err = ipc_write(&c, sizeof(c));
-            if (err) {
-                state = PERSISTENT_STOP;
-                return 0;
-            }
+            ipc_write(&c, sizeof(c));
             
             iterations -= 1;
             
-            err = ipc_read(&c, sizeof(c));
-            if (err || c == COMMAND_STOP) {
+            ipc_read(&c, sizeof(c));
+            
+            if (c == COMMAND_STOP) {
                 state = PERSISTENT_STOP;
                 return 0;
             } else if (c == COMMAND_RUN) {

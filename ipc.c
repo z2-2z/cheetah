@@ -14,7 +14,7 @@ typedef enum {
     OP_NONE,
     OP_READ,
     OP_WRITE,
-} IPCOp;
+} IpcOp;
 
 typedef struct {
     sem_t semaphore;
@@ -25,10 +25,10 @@ typedef struct {
 typedef struct {
     Channel command_channel; // fuzzer -> target
     Channel status_channel;  // target -> fuzzer
-    IPCOp last_op;           // last operation the target did
-} IPC;
+    IpcOp last_op;           // last operation the target did
+} Ipc;
 
-static volatile IPC* shm = NULL;
+static volatile Ipc* shm = NULL;
 
 int ipc_open (void) {
     char* value = getenv(FORKSERVER_SHM_ENV_VAR);
@@ -38,7 +38,7 @@ int ipc_open (void) {
     }
     
     int id = atoi(value);
-    shm = (volatile IPC*) shmat(id, NULL, 0);
+    shm = (volatile Ipc*) shmat(id, NULL, 0);
     
     if (!shm || shm == (void*) -1) {
         panic(SOURCE_IPC, "Could not attach to shm");
@@ -47,12 +47,7 @@ int ipc_open (void) {
     return 0;
 }
 
-void ipc_close (void) {
-    // Detaching is not necessary for performance reasons
-    shm = NULL;
-}
-
-static void check_op (IPCOp op) {
+static void check_op (IpcOp op) {
     if (shm->last_op != op) {
         shm->last_op = op;
     } else {
@@ -60,7 +55,7 @@ static void check_op (IPCOp op) {
     }
 }
 
-int ipc_write (void* buffer, size_t length) {
+void ipc_write (void* buffer, size_t length) {
     check_op(OP_WRITE);
     
     if (length > MAX_MESSAGE_SIZE) {
@@ -75,11 +70,9 @@ int ipc_write (void* buffer, size_t length) {
             panic(SOURCE_IPC, "Could not write to status channel");
         }
     }
-    
-    return 0;
 }
 
-int ipc_read (void* buffer, size_t length) {
+void ipc_read (void* buffer, size_t length) {
     check_op(OP_READ);
     
     while (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
@@ -93,5 +86,4 @@ int ipc_read (void* buffer, size_t length) {
     }
     
     memcpy(buffer, (void*) &shm->command_channel.message, length);
-    return 0;
 }

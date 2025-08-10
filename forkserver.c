@@ -18,19 +18,14 @@ int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config) {
     }
     
     unsigned int ident = FORKSERVER_MAGIC | (FORKSERVER_VERSION << 8) | mode;
+    ipc_write(&ident, sizeof(ident));
     
-    err = ipc_write(&ident, sizeof(ident));
-    if (err) {
-        return err;
-    }
-    
-    err = ipc_read(config, sizeof(*config));
-    if (err) {
-        return err;
-    }
+    ipc_read(config, sizeof(*config));
     
     ident = 1;
-    return ipc_write(&ident, sizeof(ident));
+    ipc_write(&ident, sizeof(ident));
+    
+    return 0;
 }
 
 ForkserverStatus convert_status (ForkserverConfig* config, int status) {
@@ -83,7 +78,6 @@ void spawn_forkserver (void) {
     ForkserverConfig config;
     sigset_t signals;
     struct timespec timeout;
-    int err;
     unsigned char c;
     
     if (started) {
@@ -92,8 +86,8 @@ void spawn_forkserver (void) {
     
     switch (forkserver_handshake(MODE_FORKSERVER, &config)) {
         case 0: break;
-        case 2: return;
-        default: panic(SOURCE_FORKSERVER, "Could not do forkserver handshake");
+        case 1: return;
+        default: __builtin_unreachable();
     }
     
     started = 1;
@@ -111,10 +105,7 @@ void spawn_forkserver (void) {
     };
     
     while (1) {
-        err = ipc_read(&c, sizeof(c));
-        if (err) {
-            break;
-        }
+        ipc_read(&c, sizeof(c));
         
         if (c == COMMAND_STOP) {
             break;
@@ -124,15 +115,10 @@ void spawn_forkserver (void) {
             if (child < 0) {
                 panic(SOURCE_FORKSERVER, "Could not fork");
             } else if (child == 0) {
-                ipc_close();
                 return;
             } else {
                 c = wait_for_child(&config, child, &signals, &timeout);
-                
-                err = ipc_write(&c, sizeof(c));
-                if (err) {
-                    break;
-                }
+                ipc_write(&c, sizeof(c));
             }
         } else {
             panic(SOURCE_FORKSERVER, "Invalid command from fuzzer");
