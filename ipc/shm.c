@@ -7,7 +7,7 @@
 #include "ipc.h"
 
 #define FORKSERVER_SHM_ENV_VAR "__FORKSERVER_SHM"
-#define MAX_MESSAGE_SIZE 4
+#define MAX_MESSAGE_SIZE 64
 
 typedef enum {
     OP_NONE,

@@ -105,10 +105,10 @@ impl Forkserver {
     
     fn handshake(child: Child, mut ipc: FuzzerIPC, mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
         /* First, check client */
-        let mut client_hello = [0u8; 4];
-        ipc.read(&mut client_hello)?;
+        let mut buffer = [0u8; 4];
+        ipc.read(&mut buffer)?;
         
-        let client_hello = u32::from_ne_bytes(client_hello);
+        let client_hello = u32::from_ne_bytes(buffer);
         
         if client_hello & FORKSERVER_MAGIC_MASK != FORKSERVER_MAGIC {
             panic!("Mismatching forkserver implementations");
@@ -126,13 +126,18 @@ impl Forkserver {
         
         /* Then, send config */
         let config = ForkserverConfig::new(timeout, signal as i32 as u32, &crash_exit_codes);
-        let buffer = unsafe {
+        let ptr = unsafe {
             std::ptr::slice_from_raw_parts(
                 std::mem::transmute::<*const ForkserverConfig, *const u8>(&config),
                 std::mem::size_of::<ForkserverConfig>(),
             )
         };
-        ipc.write(unsafe { &*buffer })?;
+        ipc.write(unsafe { &*ptr })?;
+        
+        ipc.read(&mut buffer)?;
+        if u32::from_ne_bytes(buffer) != 1 {
+            return Err(Error::unknown("Fuzz target signalled that forkserver config is not okay in handshake"));
+        }
         
         Ok(Self {
             child,

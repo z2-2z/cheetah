@@ -1,7 +1,7 @@
 use libafl::prelude::{Error};
 use libafl_bolts::prelude::{UnixShMem, UnixShMemProvider, ShMemProvider, ShMem};
 
-const MAX_MESSAGE_SIZE: usize = 4;
+const MAX_MESSAGE_SIZE: usize = 64;
 
 #[derive(PartialEq, Eq, Debug)]
 enum Op {

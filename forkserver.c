@@ -24,7 +24,13 @@ int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config) {
         return err;
     }
     
-    return ipc_read(config, sizeof(*config));
+    err = ipc_read(config, sizeof(*config));
+    if (err) {
+        return err;
+    }
+    
+    ident = 1;
+    return ipc_write(&ident, sizeof(ident));
 }
 
 ForkserverStatus convert_status (ForkserverConfig* config, int status) {
