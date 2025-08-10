@@ -243,7 +243,7 @@ impl Default for ForkserverBuilder {
             binary: None,
             args: Vec::new(),
             env: Vec::new(),
-            timeout: 5000,
+            timeout: 10_000,
             signal: Signal::SIGKILL,
             output: false,
             crash_exit_code: Vec::new(),
