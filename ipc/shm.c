@@ -2,6 +2,7 @@
 #include <string.h>
 #include <semaphore.h>
 #include <sys/shm.h>
+#include <errno.h>
 
 #include "../utils.h"
 #include "ipc.h"
@@ -69,8 +70,10 @@ int ipc_write (void* buffer, size_t length) {
     shm->status_channel.message_size = length;
     memcpy((void*) &shm->status_channel.message, buffer, length);
     
-    if (sem_post((sem_t*) &shm->status_channel.semaphore) == -1) {
-        panic(SOURCE_IPC, "Could not write to status channel");
+    while (sem_post((sem_t*) &shm->status_channel.semaphore) == -1) {
+        if (errno != EINTR) {
+            panic(SOURCE_IPC, "Could not write to status channel");
+        }
     }
     
     return 0;
@@ -79,8 +82,10 @@ int ipc_write (void* buffer, size_t length) {
 int ipc_read (void* buffer, size_t length) {
     check_op(OP_READ);
     
-    if (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
-        panic(SOURCE_IPC, "Could not read from command channel");
+    while (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
+        if (errno != EINTR) {
+            panic(SOURCE_IPC, "Could not read from command channel");
+        }
     }
     
     if (shm->command_channel.message_size != length) {
