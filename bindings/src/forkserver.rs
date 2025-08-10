@@ -221,6 +221,20 @@ impl Forkserver {
     }
 }
 
+impl Drop for Forkserver {
+    fn drop(&mut self) {
+        // In case of persistent mode: One for grandchild, one for child
+        let _ = self.stop_target();
+        let _ = self.stop_target();
+        
+        if kill(Pid::from_raw(self.child.id() as i32), self.signal).is_err() {
+            let _ = self.child.kill();
+        }
+        
+        let _ = self.child.try_wait();
+    }
+}
+
 pub struct ForkserverBuilder {
     binary: Option<OsString>,
     args: Vec<OsString>,
@@ -246,20 +260,6 @@ impl Default for ForkserverBuilder {
             forkserver_fd: -1,
             shmem_size: None,
         }
-    }
-}
-
-impl Drop for Forkserver {
-    fn drop(&mut self) {
-        // In case of persistent mode: One for grandchild, one for child
-        let _ = self.stop_target();
-        let _ = self.stop_target();
-        
-        if kill(Pid::from_raw(self.child.id() as i32), self.signal).is_err() {
-            let _ = self.child.kill();
-        }
-        
-        let _ = self.child.try_wait();
     }
 }
 
