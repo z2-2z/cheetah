@@ -6,7 +6,7 @@ use nix::{
     unistd::Pid,
 };
 use std::process::{Command, Stdio, Child};
-use crate::ipc::FuzzerIPC;
+use crate::ipc::ForkserverIPC;
 
 const FORKSERVER_MAGIC_MASK: u32 = 0xFFFF0000;
 const FORKSERVER_VERSION_MASK: u32 = 0x0000FF00;
@@ -89,7 +89,7 @@ struct InputChannelMetadata {
 pub struct Forkserver {
     child: Child,
     mode: ForkserverMode,
-    ipc: FuzzerIPC,
+    ipc: ForkserverIPC,
     signal: Signal,
     shmem: Option<UnixShMem>,
 }
@@ -103,7 +103,7 @@ impl Forkserver {
         &self.mode
     }
     
-    fn handshake(child: Child, mut ipc: FuzzerIPC, mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
+    fn handshake(child: Child, mut ipc: ForkserverIPC, mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
         /* First, check client hello */
         let mut buffer = [0u8; 4];
         ipc.read(&mut buffer)?;
@@ -313,7 +313,7 @@ impl ForkserverBuilder {
     }
     
     pub fn spawn(self) -> Result<Forkserver, Error> {
-        let ipc = FuzzerIPC::new()?;
+        let ipc = ForkserverIPC::new()?;
         let shmem = self.setup_shm()?;
         let binary = self.binary.expect("No binary given to forkserver");
         

@@ -68,29 +68,30 @@ impl Channel {
 }
 
 #[repr(C)]
-struct Ipc {
+struct IPCChannels {
     command_channel: Channel,
     status_channel: Channel,
     // fuzzer does not need last_op
 }
 
 #[derive(Debug)]
-pub(crate) struct FuzzerIPC {
+pub(crate) struct ForkserverIPC {
     shmem: UnixShMem,
     last_op: Op,
 }
 
-impl FuzzerIPC {
+impl ForkserverIPC {
     pub(crate) fn new() -> Result<Self, Error> {
         let mut shmem_provider = UnixShMemProvider::new()?;
         let mut shmem = shmem_provider.new_shmem(4096)?;
         unsafe {
             shmem.write_to_env("__FORKSERVER_SHM")?;
-            
-            let ipc = &mut *shmem.as_mut_ptr_of::<Ipc>().unwrap_unchecked();
-            ipc.command_channel.init()?;
-            ipc.status_channel.init()?;
         }
+            
+        let channels = unsafe { &mut *shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.command_channel.init()?;
+        channels.status_channel.init()?;
+        
         Ok(Self {
             shmem,
             last_op: Op::None,
@@ -109,26 +110,18 @@ impl FuzzerIPC {
     
     pub(crate) fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
         self.check_op(Op::Read)?;
-        
-        unsafe {
-            let ipc = &mut *self.shmem.as_mut_ptr_of::<Ipc>().unwrap_unchecked();
-            ipc.status_channel.read(buffer)
-        }
+        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.status_channel.read(buffer)
     }
     
     pub(crate) fn write(&mut self, data: &[u8]) -> Result<(), Error> {
         self.check_op(Op::Write)?;
-        
-        unsafe {
-            let ipc = &mut *self.shmem.as_mut_ptr_of::<Ipc>().unwrap_unchecked();
-            ipc.command_channel.write(data)
-        }
+        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.command_channel.write(data)
     }
     
     pub(crate) fn write_unchecked(&mut self, data: &[u8]) -> Result<(), Error> {
-        unsafe {
-            let ipc = &mut *self.shmem.as_mut_ptr_of::<Ipc>().unwrap_unchecked();
-            ipc.command_channel.write(data)
-        }
+        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.command_channel.write(data)
     }
 }
