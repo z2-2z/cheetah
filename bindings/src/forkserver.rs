@@ -21,6 +21,7 @@ const FORKSERVER_VERSION_MASK: u32 = 0x0000FF00;
 const FORKSERVER_MODE_MASK: u32 = 0x000000FF;
 const FORKSERVER_MAGIC: u32 = 0xDEAD0000;
 const FORKSERVER_FD_ENV_VAR: &str = "__FORKSERVER_FD";
+const FUZZ_INPUT_SHM_ENV_VAR: &str = "__FUZZ_INPUT_SHM";
 
 #[repr(u8)]
 enum ForkserverCommand {
@@ -333,7 +334,7 @@ impl ForkserverBuilder {
             let mut shmem_provider = UnixShMemProvider::new()?;
             let shmem = shmem_provider.new_shmem(size_of::<InputChannelMetadata>() + *shmem_size)?;
             unsafe {
-                shmem.write_to_env("__FUZZ_INPUT_SHM")?;
+                shmem.write_to_env(FUZZ_INPUT_SHM_ENV_VAR)?;
             }
             Ok(Some(shmem))
         } else {
@@ -428,7 +429,7 @@ mod tests {
         let cores = Cores::from_cmdline(&cores)?;
         let map_size = std::cmp::max(64, crate::get_afl_map_size(BINARY)?);
         
-        let mut run_client_text = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
+        let mut run_client = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
             let mut shmem_provider = UnixShMemProvider::new()?;
             let mut covmap = shmem_provider.new_shmem(map_size)?;
             unsafe {
@@ -513,7 +514,7 @@ mod tests {
             .shmem_provider(shmem_provider)
             .configuration(EventConfig::AlwaysUnique)
             .monitor(monitor)
-            .run_client(&mut run_client_text)
+            .run_client(&mut run_client)
             .cores(&cores)
             .build()
             .launch()
@@ -529,7 +530,7 @@ mod tests {
         let cores = std::env::var("CORES").unwrap_or_else(|_| "0".to_string());
         let cores = Cores::from_cmdline(&cores)?;
         
-        let mut run_client_text = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
+        let mut run_client = |state: Option<_>, mut mgr: LlmpRestartingEventManager<_, _, _, _, _>, _client: ClientDescription| {
             let mut shmem_provider = UnixShMemProvider::new()?;
             let mut covmap = shmem_provider.new_shmem(MAP_SIZE)?;
             unsafe {
@@ -602,7 +603,7 @@ mod tests {
             .shmem_provider(shmem_provider)
             .configuration(EventConfig::AlwaysUnique)
             .monitor(monitor)
-            .run_client(&mut run_client_text)
+            .run_client(&mut run_client)
             .cores(&cores)
             .build()
             .launch()
