@@ -57,14 +57,14 @@ was used and for the Cheetah setup, an `InProcessExecutor` was used that
 utilized Cheetah's rust bindings directly. Both fuzzers were given the
 same seed and were prevented from doing any input generation.
 A `NopMutator` was created that leaves the seed inputs unmodified and
-the corpus consists of a single, empty file.
+a corpus was built that consists of a single, zero-length file.
 
 The exact setup is:
 ```
 make
 AFL_PATH=<your afl path> make -C tests
 ```
-and then run the benchmarks with
+and
 ```
 cd bindings
 CORES=<core speficiation> cargo test --release bench_afl -- --nocapture
