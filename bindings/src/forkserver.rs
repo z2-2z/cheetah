@@ -104,7 +104,7 @@ impl Forkserver {
     }
     
     fn handshake(child: Child, mut ipc: FuzzerIPC, mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
-        /* First, check client */
+        /* First, check client hello */
         let mut buffer = [0u8; 4];
         ipc.read(&mut buffer)?;
         
@@ -134,6 +134,7 @@ impl Forkserver {
         };
         ipc.write(unsafe { &*ptr })?;
         
+        /* Check if config accepted */
         ipc.read(&mut buffer)?;
         if u32::from_ne_bytes(buffer) != 1 {
             return Err(Error::unknown("Fuzz target signalled that forkserver config is not okay in handshake"));
@@ -148,12 +149,14 @@ impl Forkserver {
         })
     }
     
+    #[inline]
     fn launch_target(&mut self) -> Result<(), Error> {
         let buf = [ForkserverCommand::Run as u8];
         self.ipc.write(&buf)?;
         Ok(())
     }
     
+    #[inline]
     fn collect_status(&mut self) -> Result<ExitKind, Error> {
         let mut buf = [0u8];
         self.ipc.read(&mut buf)?;
@@ -188,8 +191,8 @@ impl Forkserver {
         );
         
         unsafe {
-            let header = shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
-            (*header).length = length;
+            let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
+            header.length = length;
         }
         shmem.as_slice_mut()[OFFSET..OFFSET + length].copy_from_slice(&data[..length]);
         
@@ -204,8 +207,8 @@ impl Forkserver {
     pub fn input_channel_set_len(&mut self, length: usize) {
         let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
         unsafe {
-            let header = shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
-            (*header).length = length;
+            let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
+            header.length = length;
         }
     }
 }
@@ -296,7 +299,7 @@ impl ForkserverBuilder {
         self
     }
     
-    fn setup_shm(&mut self) -> Result<Option<UnixShMem>, Error> {
+    fn setup_shm(&self) -> Result<Option<UnixShMem>, Error> {
         if let Some(shmem_size) = &self.shmem_size {
             let mut shmem_provider = UnixShMemProvider::new()?;
             let shmem = shmem_provider.new_shmem(size_of::<InputChannelMetadata>() + *shmem_size)?;
@@ -309,7 +312,7 @@ impl ForkserverBuilder {
         }
     }
     
-    pub fn spawn(mut self) -> Result<Forkserver, Error> {
+    pub fn spawn(self) -> Result<Forkserver, Error> {
         let ipc = FuzzerIPC::new()?;
         let shmem = self.setup_shm()?;
         let binary = self.binary.expect("No binary given to forkserver");
