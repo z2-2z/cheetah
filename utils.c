@@ -21,6 +21,10 @@ void panic (ErrorSource source, const char* message) {
             source_str = "Fuzz input";
             break;
         }
+        case SOURCE_IPC: {
+            source_str = "IPC";
+            break;
+        }
     }
     
     fprintf(stderr, "%s runtime failure: %s\n", source_str, message);

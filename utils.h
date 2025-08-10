@@ -8,6 +8,7 @@ typedef enum {
     SOURCE_FORKSERVER,
     SOURCE_PERSISTENT,
     SOURCE_FUZZ_INPUT,
+    SOURCE_IPC,
 } ErrorSource;
 
 __attribute__((noreturn)) void panic (ErrorSource source, const char* message);

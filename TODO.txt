@@ -1,0 +1,42 @@
+IPC using shm instead of pipes:
+	- for each direction a semaphore + buffer
+	- semaphore value signifies "number of messages" in channel
+	- read message with sem_wait()
+
+	Channel:
+	- put_message: write into buffer + sem_post()
+	- get_message: sem_wait()  + read from buffer
+
+	Only one message a time!
+	Two consecutive reads / writes are not allowed! Always alternate!
+
+	Channel 1: fuzzer -> target (commands)
+	Channel 2: fuzzer <- target (status)
+
+	struct Channel {
+		sem_t semaphore;
+		size_t message_size;
+		unsigned char message[MAX_MESSAGE_SIZE];
+	}
+	struct ShmPipe {
+		Channel command_channel;
+		Channel status_channel;
+        int last_channel; // to ensure alternation in IPC implementation
+	}
+    
+    Handshake:
+        fuzzer <- target: magic + version + mode
+        fuzzer -> target: config
+        fuzzer <- target: ack or nack
+    
+    Forkserver / Persistent:
+        fuzzer -> target: command
+        fuzzer <- target: status
+        
+    command stop also needs an ack
+
+- pipe functions
+	- transmit data
+	- synchronization: block on reads / writes
+	- state: short-read on close, SIGPIPE on write
+
