@@ -19,12 +19,12 @@ int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config) {
     
     unsigned int ident = FORKSERVER_MAGIC | (FORKSERVER_VERSION << 8) | mode;
     
-    err = ipc_write((void*) &ident, sizeof(ident));
+    err = ipc_write(&ident, sizeof(ident));
     if (err) {
         return err;
     }
     
-    return ipc_read((void*) config, sizeof(*config));
+    return ipc_read(config, sizeof(*config));
 }
 
 ForkserverStatus convert_status (ForkserverConfig* config, int status) {

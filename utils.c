@@ -32,38 +32,6 @@ void panic (ErrorSource source, const char* message) {
     while (1) abort();
 }
 
-int write_all (int fd, void* buf, size_t count) {
-    size_t total = 0;
-    
-    do {
-        ssize_t r = write(fd, (char*)buf + total, count - total);
-        
-        if (r <= 0) {
-            return 1;
-        } else {
-            total += r;
-        }
-    } while (total < count);
-    
-    return 0;
-}
-
-int read_all (int fd, void* buf, size_t count) {
-    size_t total = 0;
-    
-    do {
-        ssize_t r = read(fd, (char*)buf + total, count - total);
-        
-        if (r <= 0) {
-            return 1;
-        } else {
-            total += r;
-        }
-    } while (total < count);
-    
-    return 0;
-}
-
 time_t duration_ms (struct timespec* start, struct timespec* end) {
     time_t delta_sec = end->tv_sec - start->tv_sec;
     time_t delta_nsec;
