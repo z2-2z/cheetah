@@ -15,3 +15,4 @@ libafl_bolts = { version = "0.15.3", features = ["prelude"] }
 nix = "0.29.0"
 goblin = "0.10"
 memmap2 = "0.9"
+libc = "0.2"

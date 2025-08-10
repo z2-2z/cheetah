@@ -3,24 +3,15 @@ use libafl_bolts::prelude::{UnixShMemProvider, ShMemProvider, ShMem, UnixShMem, 
 use std::ffi::OsString;
 use nix::{
     sys::signal::{Signal, kill},
-    unistd::{dup, dup2, close, Pid,},
+    unistd::Pid,
 };
 use std::process::{Command, Stdio, Child};
-use std::io::{Write, Read, PipeReader, PipeWriter};
-use std::os::fd::{FromRawFd, IntoRawFd};
-
-fn create_pipe() -> Result<(i32, i32), Error> {
-    let p = std::io::pipe()?;
-    let r = p.0.into_raw_fd();
-    let w = p.1.into_raw_fd();
-    Ok((r, w))
-}
+use crate::ipc::FuzzerIPC;
 
 const FORKSERVER_MAGIC_MASK: u32 = 0xFFFF0000;
 const FORKSERVER_VERSION_MASK: u32 = 0x0000FF00;
 const FORKSERVER_MODE_MASK: u32 = 0x000000FF;
 const FORKSERVER_MAGIC: u32 = 0xDEAD0000;
-const FORKSERVER_FD_ENV_VAR: &str = "__FORKSERVER_FD";
 const FUZZ_INPUT_SHM_ENV_VAR: &str = "__FUZZ_INPUT_SHM";
 
 #[repr(u8)]
@@ -98,7 +89,7 @@ struct InputChannelMetadata {
 pub struct Forkserver {
     child: Child,
     mode: ForkserverMode,
-    pipe: (PipeReader, PipeWriter),
+    ipc: FuzzerIPC,
     signal: Signal,
     shmem: Option<UnixShMem>,
 }
@@ -112,17 +103,10 @@ impl Forkserver {
         &self.mode
     }
     
-    fn handshake(child: Child, pipe: (i32, i32), mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
-        let mut pipe = unsafe {
-            (
-                PipeReader::from_raw_fd(pipe.0),
-                PipeWriter::from_raw_fd(pipe.1),
-            )
-        };
-        
+    fn handshake(child: Child, mut ipc: FuzzerIPC, mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
         /* First, check client */
         let mut client_hello = [0u8; 4];
-        pipe.0.read_exact(&mut client_hello)?;
+        ipc.read(&mut client_hello)?;
         
         let client_hello = u32::from_ne_bytes(client_hello);
         
@@ -148,26 +132,26 @@ impl Forkserver {
                 std::mem::size_of::<ForkserverConfig>(),
             )
         };
-        pipe.1.write_all(unsafe { &*buffer })?;
+        ipc.write(unsafe { &*buffer })?;
         
         Ok(Self {
             child,
             mode,
-            pipe,
+            ipc,
             signal,
             shmem,
         })
     }
     
-    pub fn launch_target(&mut self) -> Result<(), Error> {
+    fn launch_target(&mut self) -> Result<(), Error> {
         let buf = [ForkserverCommand::Run as u8];
-        self.pipe.1.write_all(&buf)?;
+        self.ipc.write(&buf)?;
         Ok(())
     }
     
-    pub fn collect_status(&mut self) -> Result<ExitKind, Error> {
+    fn collect_status(&mut self) -> Result<ExitKind, Error> {
         let mut buf = [0u8];
-        self.pipe.0.read_exact(&mut buf)?;
+        self.ipc.read(&mut buf)?;
         
         match ForkserverStatus::from(buf[0]) {
             ForkserverStatus::Exit => Ok(ExitKind::Ok),
@@ -178,7 +162,7 @@ impl Forkserver {
     
     pub fn stop_target(&mut self) -> Result<(), Error> {
         let buf = [ForkserverCommand::Stop as u8];
-        self.pipe.1.write_all(&buf)?;
+        self.ipc.write_unchecked(&buf)?;
         Ok(())
     }
     
@@ -223,7 +207,6 @@ impl Forkserver {
 
 impl Drop for Forkserver {
     fn drop(&mut self) {
-        // In case of persistent mode: One for grandchild, one for child
         let _ = self.stop_target();
         let _ = self.stop_target();
         
@@ -243,7 +226,6 @@ pub struct ForkserverBuilder {
     signal: Signal,
     output: bool,
     crash_exit_code: Vec<u8>,
-    forkserver_fd: i32,
     shmem_size: Option<usize>,
 }
 
@@ -257,7 +239,6 @@ impl Default for ForkserverBuilder {
             signal: Signal::SIGKILL,
             output: false,
             crash_exit_code: Vec::new(),
-            forkserver_fd: -1,
             shmem_size: None,
         }
     }
@@ -310,25 +291,6 @@ impl ForkserverBuilder {
         self
     }
     
-    fn setup_pipes(&mut self) -> Result<(i32, i32), Error> {
-        let pipe_forward = create_pipe()?;
-        let pipe_backward = create_pipe()?;
-        
-        /* Target-facing fds */
-        self.forkserver_fd = dup(pipe_forward.0)?;
-        dup2(pipe_backward.1, self.forkserver_fd + 1)?;
-        
-        unsafe {
-            std::env::set_var(FORKSERVER_FD_ENV_VAR, format!("{}", self.forkserver_fd));
-        }
-        
-        close(pipe_forward.0)?;
-        close(pipe_backward.1)?;
-        
-        /* Fuzzer-facing fds */
-        Ok((pipe_backward.0, pipe_forward.1))
-    }
-    
     fn setup_shm(&mut self) -> Result<Option<UnixShMem>, Error> {
         if let Some(shmem_size) = &self.shmem_size {
             let mut shmem_provider = UnixShMemProvider::new()?;
@@ -343,7 +305,7 @@ impl ForkserverBuilder {
     }
     
     pub fn spawn(mut self) -> Result<Forkserver, Error> {
-        let pipe = self.setup_pipes()?;
+        let ipc = FuzzerIPC::new()?;
         let shmem = self.setup_shm()?;
         let binary = self.binary.expect("No binary given to forkserver");
         
@@ -385,10 +347,7 @@ impl ForkserverBuilder {
         
         let handle = command.spawn()?;
         
-        close(self.forkserver_fd)?;
-        close(self.forkserver_fd + 1)?;
-        
-        Forkserver::handshake(handle, pipe, self.timeout, self.signal, self.crash_exit_code, shmem)
+        Forkserver::handshake(handle, ipc, self.timeout, self.signal, self.crash_exit_code, shmem)
     }
 }
 
