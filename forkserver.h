@@ -3,7 +3,6 @@
 
 #include <signal.h>
 
-#define FORKSERVER_FD_ENV_VAR "__FORKSERVER_FD"
 #define FORKSERVER_MAGIC   0xDEAD0000
 #define FORKSERVER_VERSION 1
 
@@ -31,7 +30,7 @@ typedef enum {
 
 extern int started;
 
-int initialize_forkserver (ForkserverMode mode, int pipe_fds[2], ForkserverConfig* config);
+int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config);
 ForkserverStatus convert_status (ForkserverConfig* config, int status);
 
 #endif

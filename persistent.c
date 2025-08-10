@@ -5,6 +5,7 @@
 #include "include/fuzzer-runtime.h"
 #include "forkserver.h"
 #include "utils.h"
+#include "ipc/ipc.h"
 
 typedef enum {
     PERSISTENT_INIT,
@@ -13,7 +14,6 @@ typedef enum {
 } PersistentState;
 
 static size_t iterations;
-static int pipe_fds[2];
 static ForkserverConfig config;
 static struct timespec start_time;
 static PersistentState state = PERSISTENT_INIT;
@@ -30,7 +30,7 @@ static void check_timeout (int sig) {
     
     if (delta >= config.timeout) {
         c = STATUS_TIMEOUT;
-        write_all(pipe_fds[1], (void*) &c, sizeof(c));
+        ipc_write(&c, sizeof(c));
         while (1) {
             raise(SIGKILL);
         }
@@ -41,7 +41,7 @@ __attribute__((noreturn))
 static void handle_crash (int sig) {
     (void) sig;
     unsigned char c = STATUS_CRASH;
-    write_all(pipe_fds[1], (void*) &c, sizeof(c));
+    ipc_write(&c, sizeof(c));
     while (1) {
         raise(SIGKILL);
     }
@@ -51,7 +51,7 @@ __attribute__((noreturn))
 static void handle_interrupt (int sig) {
     (void) sig;
     unsigned char c = STATUS_EXIT;
-    write_all(pipe_fds[1], (void*) &c, sizeof(c));
+    ipc_write(&c, sizeof(c));
     while (1) {
         raise(SIGKILL);
     }
@@ -159,14 +159,13 @@ int spawn_persistent_loop (size_t iters) {
     
     switch (state) {
         case PERSISTENT_INIT: {
-            switch (initialize_forkserver(MODE_PERSISTENT, pipe_fds, &config)) {
+            switch (forkserver_handshake(MODE_PERSISTENT, &config)) {
                 case 0: break;
-                case 1: panic(SOURCE_PERSISTENT, "Could not initialize forkserver");
                 case 2: {
                     state = PERSISTENT_STOP;
                     return 1;
                 };
-                default: __builtin_unreachable();
+                default: panic(SOURCE_PERSISTENT, "Could not do forkserver handshake");
             }
             
             err = initialize_persistent_mode();
@@ -178,7 +177,7 @@ int spawn_persistent_loop (size_t iters) {
             started = 1;
             
             while (1) {
-                err = read_all(pipe_fds[0], &c, sizeof(c));
+                err = ipc_read(&c, sizeof(c));
                 if (err) {
                     break;
                 }
@@ -208,7 +207,7 @@ int spawn_persistent_loop (size_t iters) {
                         if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
                             c = convert_status(&config, status);
                         
-                            err = write_all(pipe_fds[1], (void*) &c, sizeof(c));
+                            err = ipc_write(&c, sizeof(c));
                             if (err) {
                                 break;
                             }
@@ -233,7 +232,7 @@ int spawn_persistent_loop (size_t iters) {
             }
             
             c = STATUS_EXIT;
-            err = write_all(pipe_fds[1], (void*) &c, sizeof(c));
+            err = ipc_write(&c, sizeof(c));
             if (err) {
                 state = PERSISTENT_STOP;
                 return 0;
@@ -241,7 +240,7 @@ int spawn_persistent_loop (size_t iters) {
             
             iterations -= 1;
             
-            err = read_all(pipe_fds[0], &c, sizeof(c));
+            err = ipc_read(&c, sizeof(c));
             if (err || c == COMMAND_STOP) {
                 state = PERSISTENT_STOP;
                 return 0;

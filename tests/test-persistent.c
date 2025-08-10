@@ -18,6 +18,7 @@ and the target has been compiled with
 #include "forkserver.h"
 #include "include/fuzzer-runtime.h"
 
+#define FORKSERVER_FD_ENV_VAR "__FORKSERVER_FD"
 #define ITERATIONS 1
 
 void setup_pipes (int final_pipe[2]) {

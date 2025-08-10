@@ -3,7 +3,7 @@
 #include <semaphore.h>
 #include <sys/shm.h>
 
-#include "utils.h"
+#include "../utils.h"
 #include "ipc.h"
 
 #define FORKSERVER_SHM_ENV_VAR "__FORKSERVER_SHM"
@@ -29,7 +29,7 @@ typedef struct {
 
 static volatile IPC* shm = NULL;
 
-int ipc_initialize (void) {
+int ipc_open (void) {
     char* value = getenv(FORKSERVER_SHM_ENV_VAR);
     
     if (!value) {
@@ -44,6 +44,11 @@ int ipc_initialize (void) {
     }
     
     return 0;
+}
+
+void ipc_close (void) {
+    // Detaching is not necessary for performance reasons
+    shm = NULL;
 }
 
 static void check_op (IPCOp op) {
