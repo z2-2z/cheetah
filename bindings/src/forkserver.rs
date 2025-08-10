@@ -539,7 +539,8 @@ mod tests {
                 .env("LD_LIBRARY_PATH", "..")
                 .is_persistent(true)
                 .debug_child(true)
-                .input(InputLocation::StdIn { input_file: None })
+                //.input(InputLocation::StdIn { input_file: None })
+                .shmem_provider(&mut shmem_provider)
                 .coverage_map_size(MAP_SIZE)
                 .min_input_size(0)
                 .build_dynamic_map(edges_observer, tuple_list!())?;

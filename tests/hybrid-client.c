@@ -4,6 +4,8 @@
 
 #include "fuzzer-runtime.h"
 
+__AFL_FUZZ_INIT();
+
 void do_libruntime (void) {
     while (spawn_persistent_loop(MAX_ITERATIONS));
 }
