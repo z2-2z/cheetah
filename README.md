@@ -37,7 +37,7 @@ Then, you can make use of the following API:
 On my `Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz` I get the following results when measuring the overhead of the
 following persistent loop implementations:
 
-![](./results.png)
+![](./tests/results.png)
 
 The benchmark measures the `exec/sec` of targets with an empty persistent loop:
 ```c
