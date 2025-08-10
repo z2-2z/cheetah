@@ -295,7 +295,7 @@ impl ForkserverBuilder {
     }
     
     pub fn use_shmem(mut self, max_input_size: usize) -> Self {
-        self.shmem_size = Some(std::cmp::max(4096, mapping_size));
+        self.shmem_size = Some(std::cmp::max(4096, max_input_size));
         self
     }
     
@@ -444,7 +444,7 @@ mod tests {
                 .env("LD_LIBRARY_PATH", "..")
                 .timeout_ms(60_000)
                 .kill_signal("SIGKILL").unwrap()
-                .output(true)
+                .debug_output(true)
                 .spawn()?;
             let mut func = |input: &BytesInput| {
                 assert!(input.is_empty());
@@ -588,7 +588,7 @@ mod tests {
             .env("LD_LIBRARY_PATH", "..")
             .timeout_ms(60_000)
             .kill_signal("SIGKILL").unwrap()
-            .output(true)
+            .debug_output(true)
             .use_shmem(4096)
             .spawn().unwrap();
         
