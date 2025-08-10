@@ -284,7 +284,7 @@ impl ForkserverBuilder {
         }
     }
     
-    pub fn output(mut self, output: bool) -> Self {
+    pub fn debug_output(mut self, output: bool) -> Self {
         self.output = output;
         self
     }
@@ -294,7 +294,7 @@ impl ForkserverBuilder {
         self
     }
     
-    pub fn use_shmem(mut self, mapping_size: usize) -> Self {
+    pub fn use_shmem(mut self, max_input_size: usize) -> Self {
         self.shmem_size = Some(std::cmp::max(4096, mapping_size));
         self
     }
