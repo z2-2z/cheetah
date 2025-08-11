@@ -12,7 +12,7 @@
 int started = 0;
 
 int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config) {
-    int err = ipc_open();
+    int err = ipc_init();
     if (err) {
         return err;
     }
@@ -22,8 +22,8 @@ int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config) {
     
     ipc_read(config, sizeof(*config));
     
-    ident = 1;
-    ipc_write(&ident, sizeof(ident));
+    unsigned char accept = 1;
+    ipc_write(&accept, sizeof(accept));
     
     return 0;
 }
@@ -105,7 +105,7 @@ void spawn_forkserver (void) {
     };
     
     while (1) {
-        ipc_read(&c, sizeof(c));
+        c = ipc_recv_command();
         
         if (c == COMMAND_STOP) {
             break;
@@ -118,7 +118,7 @@ void spawn_forkserver (void) {
                 return;
             } else {
                 c = wait_for_child(&config, child, &signals, &timeout);
-                ipc_write(&c, sizeof(c));
+                ipc_send_status(c);
             }
         } else {
             panic(SOURCE_FORKSERVER, "Invalid command from fuzzer");

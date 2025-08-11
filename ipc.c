@@ -30,7 +30,7 @@ typedef struct {
 
 static volatile Ipc* shm = NULL;
 
-int ipc_open (void) {
+int ipc_init (void) {
     char* value = getenv(FORKSERVER_SHM_ENV_VAR);
     
     if (!value) {
@@ -86,4 +86,30 @@ void ipc_read (void* buffer, size_t length) {
     }
     
     memcpy(buffer, (void*) &shm->command_channel.message, length);
+}
+
+unsigned char ipc_recv_command (void) {
+    check_op(OP_READ);
+    
+    while (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
+        if (errno != EINTR) {
+            panic(SOURCE_IPC, "Could not read from command channel");
+        }
+    }
+    
+    return shm->command_channel.message[0];
+}
+
+void ipc_send_status (unsigned char status) {
+    check_op(OP_WRITE);
+    
+    // Length = 1 is already set by last message of handshake so we don't
+    // need to set it anymore
+    shm->status_channel.message[0] = status;
+    
+    while (sem_post((sem_t*) &shm->status_channel.semaphore) == -1) {
+        if (errno != EINTR) {
+            panic(SOURCE_IPC, "Could not write to status channel");
+        }
+    }
 }

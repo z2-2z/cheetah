@@ -23,14 +23,12 @@ static void check_timeout (int sig) {
     
     struct timespec now;
     time_t delta;
-    unsigned char c;
     
     clock_gettime(CLOCK_MONOTONIC_RAW, &now);
     delta = duration_ms(&start_time, &now);
     
     if (delta >= config.timeout - 100) {
-        c = STATUS_TIMEOUT;
-        ipc_write(&c, sizeof(c));
+        ipc_send_status(STATUS_TIMEOUT);
         while (1) {
             raise(SIGKILL);
         }
@@ -40,8 +38,7 @@ static void check_timeout (int sig) {
 __attribute__((noreturn))
 static void handle_crash (int sig) {
     (void) sig;
-    unsigned char c = STATUS_CRASH;
-    ipc_write(&c, sizeof(c));
+    ipc_send_status(STATUS_CRASH);
     while (1) {
         raise(SIGKILL);
     }
@@ -50,8 +47,7 @@ static void handle_crash (int sig) {
 __attribute__((noreturn))
 static void handle_interrupt (int sig) {
     (void) sig;
-    unsigned char c = STATUS_EXIT;
-    ipc_write(&c, sizeof(c));
+    ipc_send_status(STATUS_EXIT);
     while (1) {
         raise(SIGKILL);
     }
@@ -177,7 +173,7 @@ int spawn_persistent_loop (size_t iters) {
             started = 1;
             
             while (1) {
-                ipc_read(&c, sizeof(c));
+                c = ipc_recv_command();
                 
                 if (c == COMMAND_STOP) {
                     break;
@@ -202,8 +198,7 @@ int spawn_persistent_loop (size_t iters) {
                         }
                         
                         if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
-                            c = convert_status(&config, status);
-                            ipc_write(&c, sizeof(c));
+                            ipc_send_status(convert_status(&config, status));
                         }
                     }
                 } else {
@@ -224,12 +219,11 @@ int spawn_persistent_loop (size_t iters) {
                 return 0;
             }
             
-            c = STATUS_EXIT;
-            ipc_write(&c, sizeof(c));
+            ipc_send_status(STATUS_EXIT);
             
             iterations -= 1;
             
-            ipc_read(&c, sizeof(c));
+            c = ipc_recv_command();
             
             if (c == COMMAND_STOP) {
                 state = PERSISTENT_STOP;

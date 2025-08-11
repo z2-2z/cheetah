@@ -135,8 +135,8 @@ impl Forkserver {
         ipc.write(unsafe { &*ptr })?;
         
         /* Check if config accepted */
-        ipc.read(&mut buffer)?;
-        if u32::from_ne_bytes(buffer) != 1 {
+        ipc.read(&mut buffer[0..1])?;
+        if buffer[0] == 0 {
             return Err(Error::unknown("Fuzz target signalled that forkserver config is not okay in handshake"));
         }
         
