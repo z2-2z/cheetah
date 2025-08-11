@@ -112,9 +112,13 @@ unsigned char ipc_recv_command (void) {
 
 void ipc_send_status (unsigned char status) {
     debug_check_op(OP_WRITE);
-    
-    // Length = 1 is already set by last message of handshake so we don't
-    // need to set it anymore
+
+#ifdef DEBUG
+    if (shm->status_channel.message_size != 1) {
+        panic(SOURCE_IPC, "Invalid message_size when sending status");
+    }
+#endif
+
     shm->status_channel.message[0] = status;
     
     while (sem_post((sem_t*) &shm->status_channel.semaphore) == -1) {

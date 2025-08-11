@@ -140,6 +140,8 @@ impl Forkserver {
             return Err(Error::unknown("Fuzz target signalled that forkserver config is not okay in handshake"));
         }
         
+        ipc.post_handshake();
+        
         Ok(Self {
             child,
             mode,
@@ -147,25 +149,6 @@ impl Forkserver {
             signal,
             shmem,
         })
-    }
-    
-    #[inline]
-    fn launch_target(&mut self) -> Result<(), Error> {
-        let buf = [ForkserverCommand::Run as u8];
-        self.ipc.write(&buf)?;
-        Ok(())
-    }
-    
-    #[inline]
-    fn collect_status(&mut self) -> Result<ExitKind, Error> {
-        let mut buf = [0u8];
-        self.ipc.read(&mut buf)?;
-        
-        match ForkserverStatus::from(buf[0]) {
-            ForkserverStatus::Exit => Ok(ExitKind::Ok),
-            ForkserverStatus::Crash => Ok(ExitKind::Crash),
-            ForkserverStatus::Timeout => Ok(ExitKind::Timeout),
-        }
     }
     
     #[inline]
@@ -177,8 +160,16 @@ impl Forkserver {
     
     #[inline(always)]
     pub fn run_target(&mut self) -> Result<ExitKind, Error> {
-        self.launch_target()?;
-        self.collect_status()
+        /* Launch target */
+        self.ipc.send_command(ForkserverCommand::Run as u8)?;
+        
+        /* Collect status */
+        let status = self.ipc.recv_status()?;
+        match ForkserverStatus::from(status) {
+            ForkserverStatus::Exit => Ok(ExitKind::Ok),
+            ForkserverStatus::Crash => Ok(ExitKind::Crash),
+            ForkserverStatus::Timeout => Ok(ExitKind::Timeout),
+        }
     }
     
     pub fn input_channel_write<D: AsRef<[u8]>>(&mut self, data: D) -> usize {

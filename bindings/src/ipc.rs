@@ -3,6 +3,7 @@ use libafl_bolts::prelude::{UnixShMem, UnixShMemProvider, ShMemProvider, ShMem};
 
 const MAX_MESSAGE_SIZE: usize = 64;
 
+#[allow(dead_code)]
 #[derive(PartialEq, Eq, Debug)]
 enum Op {
     None,
@@ -65,18 +66,43 @@ impl Channel {
         
         Ok(())
     }
+    
+    #[inline]
+    fn read_byte(&mut self) -> Result<u8, Error> {
+        unsafe {
+            if libc::sem_wait(&mut self.semaphore as *mut libc::sem_t) == -1 {
+                return Err(Error::last_os_error("Could not read from channel"));
+            }
+        }
+        
+        Ok(self.message[0])
+    }
+    
+    #[inline]
+    fn write_byte(&mut self, byte: u8) -> Result<(), Error> {
+        self.message[0] = byte;
+        
+        unsafe {
+            if libc::sem_post(&mut self.semaphore as *mut libc::sem_t) == -1 {
+                return Err(Error::last_os_error("Could not write to channel"));
+            }
+        }
+        
+        Ok(())
+    }
 }
 
 #[repr(C)]
 struct IPCChannels {
     command_channel: Channel,
     status_channel: Channel,
-    // fuzzer does not need last_op
 }
 
 #[derive(Debug)]
 pub(crate) struct ForkserverIPC {
     shmem: UnixShMem,
+    
+    #[allow(dead_code)]
     last_op: Op,
 }
 
@@ -98,24 +124,28 @@ impl ForkserverIPC {
         })
     }
     
+    #[allow(dead_code)]
     #[inline]
-    fn check_op(&mut self, op: Op) -> Result<(), Error> {
+    fn check_op(&mut self, op: Op) {
         if self.last_op != op {
             self.last_op = op;
-            Ok(())
         } else {
-            Err(Error::unknown("Non-alternating IPC channel ops"))
+            panic!("Non-alternating IPC channel ops");
         }
     }
     
     pub(crate) fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
-        self.check_op(Op::Read)?;
+        #[cfg(debug_assertions)]
+        self.check_op(Op::Read);
+        
         let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
         channels.status_channel.read(buffer)
     }
     
     pub(crate) fn write(&mut self, data: &[u8]) -> Result<(), Error> {
-        self.check_op(Op::Write)?;
+        #[cfg(debug_assertions)]
+        self.check_op(Op::Write);
+        
         let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
         channels.command_channel.write(data)
     }
@@ -123,5 +153,30 @@ impl ForkserverIPC {
     pub(crate) fn write_unchecked(&mut self, data: &[u8]) -> Result<(), Error> {
         let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
         channels.command_channel.write(data)
+    }
+    
+    pub(crate) fn post_handshake(&mut self) {
+        // Every write from now on will only be one byte so it suffices to the length only once, here
+        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.command_channel.message_size = 1;
+        assert_eq!(channels.status_channel.message_size, 1);
+    }
+    
+    #[inline]
+    pub(crate) fn recv_status(&mut self) -> Result<u8, Error> {
+        #[cfg(debug_assertions)]
+        self.check_op(Op::Read);
+        
+        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.status_channel.read_byte()
+    }
+    
+    #[inline]
+    pub(crate) fn send_command(&mut self, cmd: u8) -> Result<(), Error> {
+        #[cfg(debug_assertions)]
+        self.check_op(Op::Write);
+        
+        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        channels.command_channel.write_byte(cmd)
     }
 }
