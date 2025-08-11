@@ -28,7 +28,7 @@ static void check_timeout (int sig) {
     clock_gettime(CLOCK_MONOTONIC_RAW, &now);
     delta = duration_ms(&start_time, &now);
     
-    if (delta >= config.timeout) {
+    if (delta >= config.timeout - 100) {
         c = STATUS_TIMEOUT;
         ipc_write(&c, sizeof(c));
         while (1) {

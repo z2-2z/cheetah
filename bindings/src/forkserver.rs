@@ -312,7 +312,7 @@ impl ForkserverBuilder {
         }
     }
     
-    pub fn spawn(self) -> Result<Forkserver, Error> {
+    pub fn spawn(mut self) -> Result<Forkserver, Error> {
         let ipc = ForkserverIPC::new()?;
         let shmem = self.setup_shm()?;
         let binary = self.binary.expect("No binary given to forkserver");
@@ -348,6 +348,7 @@ impl ForkserverBuilder {
         }
         if !has_lsan_options && std::env::var("LSAN_OPTIONS").is_err() {
             command.env("LSAN_OPTIONS", "exitcode=23");
+            self.crash_exit_code.push(23);
         }
         if !has_asan_options && std::env::var("ASAN_OPTIONS").is_err() {
             command.env("ASAN_OPTIONS", "detect_leaks=1:abort_on_error=1:halt_on_error=1:symbolize=0:detect_stack_use_after_return=1:max_malloc_fill_size=1073741824");
@@ -600,5 +601,41 @@ mod tests {
         
         forkserver.input_channel_write(b"");
         forkserver.execute_target().unwrap();
+    }
+    
+    #[test]
+    fn test_persistent() {
+        let mut forkserver = super::Forkserver::builder()
+            .binary("../tests/test-persistent")
+            .env("LD_LIBRARY_PATH", "..")
+            .timeout_ms(5_000)
+            .kill_signal("SIGKILL").unwrap()
+            .debug_output(true)
+            .use_shmem(4096)
+            .spawn().unwrap();
+        
+        let mut check = |cmd: &[u8], code| {
+            assert_eq!(
+                forkserver.input_channel_write(cmd),
+                cmd.len()
+            );
+            assert_eq!(
+                forkserver.execute_target().unwrap(),
+                code
+            );
+        };
+        
+        check(b"nothing", ExitKind::Ok);
+        check(b"timeout", ExitKind::Timeout);
+        check(b"nothing", ExitKind::Ok);
+        check(b"uaf", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"leak", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"null", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"trap", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"ub", ExitKind::Crash);
     }
 }
