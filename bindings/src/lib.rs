@@ -1,4 +1,6 @@
 mod compat;
 mod ipc;
-pub mod forkserver;
+mod forkserver;
+
 pub use compat::*;
+pub use forkserver::*;

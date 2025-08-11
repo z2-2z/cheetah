@@ -168,14 +168,15 @@ impl Forkserver {
         }
     }
     
-    pub fn stop_target(&mut self) -> Result<(), Error> {
+    #[inline]
+    fn stop_target(&mut self) -> Result<(), Error> {
         let buf = [ForkserverCommand::Stop as u8];
         self.ipc.write_unchecked(&buf)?;
         Ok(())
     }
     
     #[inline(always)]
-    pub fn execute_target(&mut self) -> Result<ExitKind, Error> {
+    pub fn run_target(&mut self) -> Result<ExitKind, Error> {
         self.launch_target()?;
         self.collect_status()
     }
@@ -449,7 +450,7 @@ mod tests {
                 .spawn()?;
             let mut func = |input: &BytesInput| {
                 assert!(input.is_empty());
-                forkserver.execute_target().unwrap()
+                forkserver.run_target().unwrap()
             };
             let mut executor = InProcessExecutor::new(
                 &mut func,
@@ -594,13 +595,13 @@ mod tests {
             .spawn().unwrap();
         
         forkserver.input_channel_write(b"Test123");
-        forkserver.execute_target().unwrap();
+        forkserver.run_target().unwrap();
         
         forkserver.input_channel_write(b"Test");
-        forkserver.execute_target().unwrap();
+        forkserver.run_target().unwrap();
         
         forkserver.input_channel_write(b"");
-        forkserver.execute_target().unwrap();
+        forkserver.run_target().unwrap();
     }
     
     #[test]
@@ -620,7 +621,7 @@ mod tests {
                 cmd.len()
             );
             assert_eq!(
-                forkserver.execute_target().unwrap(),
+                forkserver.run_target().unwrap(),
                 code
             );
         };
@@ -656,7 +657,7 @@ mod tests {
                 cmd.len()
             );
             assert_eq!(
-                forkserver.execute_target().unwrap(),
+                forkserver.run_target().unwrap(),
                 code
             );
         };
