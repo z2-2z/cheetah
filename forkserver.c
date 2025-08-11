@@ -80,16 +80,9 @@ void spawn_forkserver (void) {
     ForkserverConfig config;
     sigset_t signals;
     struct timespec timeout;
-    int run = 1;
     
-    if (started) {
+    if (started || forkserver_handshake(MODE_FORKSERVER, &config)) {
         return;
-    }
-    
-    switch (forkserver_handshake(MODE_FORKSERVER, &config)) {
-        case 0: break;
-        case 1: return;
-        default: __builtin_unreachable();
     }
     
     started = 1;
@@ -106,22 +99,19 @@ void spawn_forkserver (void) {
         .tv_nsec = (config.timeout % 1000) * 1000 * 1000,
     };
     
-    while (run) {
+    while (1) {
         switch (ipc_recv_command()) {
-            case COMMAND_STOP: {
-                run = 0;
-                break;
-            }
+            case COMMAND_STOP: _Exit(0);
             case COMMAND_RUN: {
                 pid_t child = fork();
                 
-                switch (child) {
-                    case -1: panic(SOURCE_FORKSERVER, "Could not fork");
-                    case 0: return;
-                    default: {
-                        unsigned char c = wait_for_child(&config, child, &signals, &timeout);
-                        ipc_send_status(c);
-                    }
+                if (child < 0) {
+                    panic(SOURCE_FORKSERVER, "Could not fork");
+                } else if (child == 0) {
+                    return;
+                } else {
+                    unsigned char c = wait_for_child(&config, child, &signals, &timeout);
+                    ipc_send_status(c);
                 }
                 
                 break;
@@ -129,7 +119,4 @@ void spawn_forkserver (void) {
             default: panic(SOURCE_FORKSERVER, "Invalid command from fuzzer");
         }
     }
-    
-    // Assume that fuzzer has been killed
-    _Exit(0);
 }

@@ -29,6 +29,7 @@ static void check_timeout (int sig) {
     
     if (delta >= config.timeout - 100) {
         ipc_send_status(STATUS_TIMEOUT);
+        
         while (1) {
             raise(SIGKILL);
         }
@@ -39,6 +40,7 @@ __attribute__((noreturn))
 static void handle_crash (int sig) {
     (void) sig;
     ipc_send_status(STATUS_CRASH);
+    
     while (1) {
         raise(SIGKILL);
     }
@@ -48,6 +50,7 @@ __attribute__((noreturn))
 static void handle_interrupt (int sig) {
     (void) sig;
     ipc_send_status(STATUS_EXIT);
+    
     while (1) {
         raise(SIGKILL);
     }
@@ -145,9 +148,8 @@ static void set_timeout (void) {
 
 __attribute__((visibility("default")))
 int spawn_persistent_loop (size_t iters) {
-    int status, err;
+    int status;
     pid_t child = 0;
-    int run = 1;
     
     if (state == PERSISTENT_INIT && started) {
         return 0;
@@ -155,53 +157,49 @@ int spawn_persistent_loop (size_t iters) {
     
     switch (state) {
         case PERSISTENT_INIT: {
-            switch (forkserver_handshake(MODE_PERSISTENT, &config)) {
-                case 0: break;
-                case 1: {
-                    state = PERSISTENT_STOP;
-                    return 1;
-                };
-                default: __builtin_unreachable();
+            if (forkserver_handshake(MODE_PERSISTENT, &config)) {
+                state = PERSISTENT_STOP;
+                return 1;
             }
             
-            err = initialize_persistent_mode();
-            if (err) {
+            if (initialize_persistent_mode()) {
                 panic(SOURCE_PERSISTENT, "Could not initialize persistent mode");
             }
             
             iterations = iters;
             started = 1;
             
-            while (run) {
+            while (1) {
                 switch (ipc_recv_command()) {
                     case COMMAND_STOP: {
-                        run = 0;
-                        break;
+                        if (child > 0) {
+                            kill(child, SIGKILL);
+                            waitpid(child, NULL, WNOHANG);
+                        }
+                        _Exit(0);
                     }
                     case COMMAND_RUN: {
                         child = fork();
                         
-                        switch (child) {
-                            case -1: panic(SOURCE_PERSISTENT, "Could not fork");
-                            case 0: {
-                                state = PERSISTENT_ITER;
-                                
-                                if (iterations > 0) {
-                                    iterations -= 1;
-                                }
-                                
-                                clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
-                                set_timeout();
-                                return 1;
+                        if (child < 0) {
+                            panic(SOURCE_PERSISTENT, "Could not fork");
+                        } else if (child == 0) {
+                            state = PERSISTENT_ITER;
+                            
+                            if (iterations > 0) {
+                                iterations -= 1;
                             }
-                            default: {
-                                if (waitpid(child, &status, 0) != child) {
-                                    panic(SOURCE_PERSISTENT, "Waitpid failed");
-                                }
-                                
-                                if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
-                                    ipc_send_status(convert_status(&config, status));
-                                }
+                            
+                            clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
+                            set_timeout();
+                            return 1;
+                        } else {
+                            if (waitpid(child, &status, 0) != child) {
+                                panic(SOURCE_PERSISTENT, "Waitpid failed");
+                            }
+                            
+                            if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
+                                ipc_send_status(convert_status(&config, status));
                             }
                         }
                         
@@ -210,13 +208,6 @@ int spawn_persistent_loop (size_t iters) {
                     default: panic(SOURCE_PERSISTENT, "Invalid command in parent");
                 }
             }
-            
-            // Assume fuzzer has exited
-            if (child > 0) {
-                kill(child, SIGKILL);
-                waitpid(child, NULL, WNOHANG);
-            }
-            _Exit(0);
         }
         case PERSISTENT_ITER: {
             if (iterations == 0) {
