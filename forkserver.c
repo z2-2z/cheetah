@@ -55,10 +55,12 @@ static unsigned char wait_for_child (ForkserverConfig* config, pid_t child, sigs
         if (errno == EAGAIN) {
             // No error handling because the child could have exited in the mean-time
             kill(child, config->signal);
+            
             int old_signal = config->signal;
             config->signal = SIGKILL;
             wait_for_child(config, child, signals, timeout);
             config->signal = old_signal;
+            
             return STATUS_TIMEOUT;
         } else {
             panic(SOURCE_FORKSERVER, "Sigtimedwait failed");
@@ -78,7 +80,7 @@ void spawn_forkserver (void) {
     ForkserverConfig config;
     sigset_t signals;
     struct timespec timeout;
-    unsigned char c;
+    int run = 1;
     
     if (started) {
         return;
@@ -104,24 +106,27 @@ void spawn_forkserver (void) {
         .tv_nsec = (config.timeout % 1000) * 1000 * 1000,
     };
     
-    while (1) {
-        c = ipc_recv_command();
-        
-        if (c == COMMAND_STOP) {
-            break;
-        } else if (c == COMMAND_RUN) {
-            pid_t child = fork();
-        
-            if (child < 0) {
-                panic(SOURCE_FORKSERVER, "Could not fork");
-            } else if (child == 0) {
-                return;
-            } else {
-                c = wait_for_child(&config, child, &signals, &timeout);
-                ipc_send_status(c);
+    while (run) {
+        switch (ipc_recv_command()) {
+            case COMMAND_STOP: {
+                run = 0;
+                break;
             }
-        } else {
-            panic(SOURCE_FORKSERVER, "Invalid command from fuzzer");
+            case COMMAND_RUN: {
+                pid_t child = fork();
+                
+                switch (child) {
+                    case -1: panic(SOURCE_FORKSERVER, "Could not fork");
+                    case 0: return;
+                    default: {
+                        unsigned char c = wait_for_child(&config, child, &signals, &timeout);
+                        ipc_send_status(c);
+                    }
+                }
+                
+                break;
+            }
+            default: panic(SOURCE_FORKSERVER, "Invalid command from fuzzer");
         }
     }
     

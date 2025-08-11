@@ -145,9 +145,9 @@ static void set_timeout (void) {
 
 __attribute__((visibility("default")))
 int spawn_persistent_loop (size_t iters) {
-    unsigned char c;
     int status, err;
     pid_t child = 0;
+    int run = 1;
     
     if (state == PERSISTENT_INIT && started) {
         return 0;
@@ -172,37 +172,42 @@ int spawn_persistent_loop (size_t iters) {
             iterations = iters;
             started = 1;
             
-            while (1) {
-                c = ipc_recv_command();
-                
-                if (c == COMMAND_STOP) {
-                    break;
-                } else if (c == COMMAND_RUN) {
-                    child = fork();
-        
-                    if (child < 0) {
-                        panic(SOURCE_PERSISTENT, "Could not fork");
-                    } else if (child == 0) {
-                        state = PERSISTENT_ITER;
-                        
-                        if (iterations > 0) {
-                            iterations -= 1;
-                        }
-                        
-                        clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
-                        set_timeout();
-                        return 1;
-                    } else {
-                        if (waitpid(child, &status, 0) != child) {
-                            panic(SOURCE_PERSISTENT, "Waitpid failed");
-                        }
-                        
-                        if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
-                            ipc_send_status(convert_status(&config, status));
-                        }
+            while (run) {
+                switch (ipc_recv_command()) {
+                    case COMMAND_STOP: {
+                        run = 0;
+                        break;
                     }
-                } else {
-                    panic(SOURCE_PERSISTENT, "Invalid command in parent");
+                    case COMMAND_RUN: {
+                        child = fork();
+                        
+                        switch (child) {
+                            case -1: panic(SOURCE_PERSISTENT, "Could not fork");
+                            case 0: {
+                                state = PERSISTENT_ITER;
+                                
+                                if (iterations > 0) {
+                                    iterations -= 1;
+                                }
+                                
+                                clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
+                                set_timeout();
+                                return 1;
+                            }
+                            default: {
+                                if (waitpid(child, &status, 0) != child) {
+                                    panic(SOURCE_PERSISTENT, "Waitpid failed");
+                                }
+                                
+                                if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
+                                    ipc_send_status(convert_status(&config, status));
+                                }
+                            }
+                        }
+                        
+                        break;
+                    }
+                    default: panic(SOURCE_PERSISTENT, "Invalid command in parent");
                 }
             }
             
@@ -223,16 +228,16 @@ int spawn_persistent_loop (size_t iters) {
             
             iterations -= 1;
             
-            c = ipc_recv_command();
-            
-            if (c == COMMAND_STOP) {
-                state = PERSISTENT_STOP;
-                return 0;
-            } else if (c == COMMAND_RUN) {
-                clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
-                return 1;
-            } else {
-                panic(SOURCE_PERSISTENT, "Invalid command in child");
+            switch (ipc_recv_command()) {
+                case COMMAND_STOP: {
+                    state = PERSISTENT_STOP;
+                    return 0;
+                }
+                case COMMAND_RUN: {
+                    clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
+                    return 1;
+                }
+                default: panic(SOURCE_PERSISTENT, "Invalid command in child");
             }
         }
         case PERSISTENT_STOP: {
