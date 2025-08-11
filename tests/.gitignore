@@ -1,3 +1,4 @@
 test-persistent
 hybrid-client
 shmem-echo
+test-forkserver

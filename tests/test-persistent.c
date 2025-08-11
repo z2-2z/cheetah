@@ -6,7 +6,7 @@
 #include "include/fuzzer-runtime.h"
 
 int main (void) {
-    while (spawn_persistent_loop(0)) {
+    while (spawn_persistent_loop(2)) {
         unsigned char* fuzz_input = fuzz_input_data();
         size_t len = fuzz_input_len();
         fuzz_input[len] = 0;

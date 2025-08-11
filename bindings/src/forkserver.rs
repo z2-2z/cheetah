@@ -638,4 +638,40 @@ mod tests {
         check(b"nothing", ExitKind::Ok);
         check(b"ub", ExitKind::Crash);
     }
+    
+    #[test]
+    fn test_forkserver() {
+        let mut forkserver = super::Forkserver::builder()
+            .binary("../tests/test-forkserver")
+            .env("LD_LIBRARY_PATH", "..")
+            .timeout_ms(5_000)
+            .kill_signal("SIGKILL").unwrap()
+            .debug_output(true)
+            .use_shmem(4096)
+            .spawn().unwrap();
+        
+        let mut check = |cmd: &[u8], code| {
+            assert_eq!(
+                forkserver.input_channel_write(cmd),
+                cmd.len()
+            );
+            assert_eq!(
+                forkserver.execute_target().unwrap(),
+                code
+            );
+        };
+        
+        check(b"nothing", ExitKind::Ok);
+        check(b"timeout", ExitKind::Timeout);
+        check(b"nothing", ExitKind::Ok);
+        check(b"uaf", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"leak", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"null", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"trap", ExitKind::Crash);
+        check(b"nothing", ExitKind::Ok);
+        check(b"ub", ExitKind::Crash);
+    }
 }
