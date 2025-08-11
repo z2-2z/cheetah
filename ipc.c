@@ -47,16 +47,20 @@ int ipc_init (void) {
     return 0;
 }
 
-static void check_op (IpcOp op) {
+static void debug_check_op (IpcOp op) {
+#ifdef DEBUG
     if (shm->last_op != op) {
         shm->last_op = op;
     } else {
         panic(SOURCE_IPC, "Non-alternating operations");
     }
+#else
+    (void) op;
+#endif
 }
 
 void ipc_write (void* buffer, size_t length) {
-    check_op(OP_WRITE);
+    debug_check_op(OP_WRITE);
     
     if (length > MAX_MESSAGE_SIZE) {
         panic(SOURCE_IPC, "Message too large for status channel");
@@ -73,7 +77,7 @@ void ipc_write (void* buffer, size_t length) {
 }
 
 void ipc_read (void* buffer, size_t length) {
-    check_op(OP_READ);
+    debug_check_op(OP_READ);
     
     while (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
         if (errno != EINTR) {
@@ -89,7 +93,7 @@ void ipc_read (void* buffer, size_t length) {
 }
 
 unsigned char ipc_recv_command (void) {
-    check_op(OP_READ);
+    debug_check_op(OP_READ);
     
     while (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
         if (errno != EINTR) {
@@ -101,7 +105,7 @@ unsigned char ipc_recv_command (void) {
 }
 
 void ipc_send_status (unsigned char status) {
-    check_op(OP_WRITE);
+    debug_check_op(OP_WRITE);
     
     // Length = 1 is already set by last message of handshake so we don't
     // need to set it anymore
