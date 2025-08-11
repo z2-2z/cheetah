@@ -31,7 +31,7 @@ Then, you can make use of the following API:
 | `void spawn_forkserver (void)` | Equivalent to `__AFL_INIT` |
 | `int spawn_persistent_loop (size_t iterations)` | Equivalent to `__AFL_LOOP` but no prior `spawn_forkserver()` is necessary |
 | `MAX_ITERATIONS` | Convenience definition to do as many iterations as possible in `spawn_persistent_loop()` |
-| `unsigned char* fuzz_input_data (void)` | Get a pointer to the fuzz input when it is being passed over shared memory. Equivalent to `__AFL_FUZZ_TESTCASE_BUF`. Must be called AFTER `spawn_forkserver()` or `spawn_persistent_loop()`. |
+| `unsigned char* fuzz_input_data (void)` | Get a pointer to the fuzz input when it is being passed over shared memory. Equivalent to `__AFL_FUZZ_TESTCASE_BUF`. Must be called AFTER `spawn_forkserver()` or `spawn_persistent_loop()`. Returns `NULL` when fuzz input is zero-length. |
 | `size_t fuzz_input_len (void)` | Length of fuzz input. Equivalent to `__AFL_FUZZ_TESTCASE_LEN`. Must be called AFTER `spawn_forkserver()` or `spawn_persistent_loop()`. |
 
 ## Benchmark
