@@ -158,7 +158,6 @@ impl Forkserver {
         Ok(())
     }
     
-    #[inline(always)]
     pub fn run_target(&mut self) -> Result<ExitKind, Error> {
         /* Launch target */
         self.ipc.send_command(ForkserverCommand::Run as u8)?;
@@ -191,7 +190,7 @@ impl Forkserver {
         length
     }
     
-    pub fn input_channel_get_data(&mut self) -> &mut [u8] {
+    pub fn input_channel_set_data(&mut self) -> &mut [u8] {
         let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
         &mut shmem.as_slice_mut()[size_of::<InputChannelMetadata>()..]
     }
