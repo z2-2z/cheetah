@@ -101,6 +101,12 @@ unsigned char ipc_recv_command (void) {
         }
     }
     
+#ifdef DEBUG
+    if (shm->command_channel.message_size != 1) {
+        panic(SOURCE_IPC, "Received command with invalid length");
+    }
+#endif
+    
     return shm->command_channel.message[0];
 }
 
