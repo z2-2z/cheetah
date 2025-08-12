@@ -19,12 +19,12 @@ int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config) {
     }
     
     unsigned int ident = FORKSERVER_MAGIC | (FORKSERVER_VERSION << 8) | mode;
-    ipc_write(&ident, sizeof(ident));
+    ipc_send_all(&ident, sizeof(ident));
     
-    ipc_read(config, sizeof(*config));
+    ipc_recv_all(config, sizeof(*config));
     
     unsigned char accept = 1;
-    ipc_write(&accept, sizeof(accept));
+    ipc_send_all(&accept, sizeof(accept));
     
     return 0;
 }
