@@ -47,6 +47,13 @@ int ipc_init (void) {
     return 0;
 }
 
+void ipc_cleanup (void) {
+    if (shm) {
+        shmdt((void*) shm);
+        shm = NULL;
+    }
+}
+
 static void debug_check_op (IpcOp op) {
 #ifdef DEBUG
     if (shm->last_op != op) {

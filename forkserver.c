@@ -8,6 +8,7 @@
 #include "forkserver.h"
 #include "utils.h"
 #include "ipc.h"
+#include "input.h"
 
 int started = 0;
 
@@ -101,7 +102,11 @@ void spawn_forkserver (void) {
     
     while (1) {
         switch (ipc_recv_command()) {
-            case COMMAND_STOP: _Exit(0);
+            case COMMAND_STOP: {
+                ipc_cleanup();
+                fuzz_input_cleanup();
+                _Exit(0);
+            }
             case COMMAND_RUN: {
                 pid_t child = fork();
                 

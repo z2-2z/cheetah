@@ -6,6 +6,7 @@
 #include "forkserver.h"
 #include "utils.h"
 #include "ipc.h"
+#include "input.h"
 
 typedef enum {
     PERSISTENT_INIT,
@@ -151,7 +152,7 @@ int spawn_persistent_loop (size_t iters) {
     int status;
     pid_t child = 0;
     
-    if (state == PERSISTENT_INIT && started) {
+    if (started && state == PERSISTENT_INIT) {
         return 0;
     }
     
@@ -176,6 +177,8 @@ int spawn_persistent_loop (size_t iters) {
                             kill(child, SIGKILL);
                             waitpid(child, NULL, WNOHANG);
                         }
+                        ipc_cleanup();
+                        fuzz_input_cleanup();
                         _Exit(0);
                     }
                     case COMMAND_RUN: {

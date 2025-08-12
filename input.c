@@ -20,6 +20,7 @@ typedef struct {
 } FuzzInput;
 
 static volatile FuzzInput* shm = NULL;
+static int is_stdin = 0;
 
 static unsigned char* consume_stdin (size_t* final_length) {
     size_t length = sizeof(FuzzInput);
@@ -72,9 +73,17 @@ static void initialize_fuzz_data (void) {
         size_t input_len = 0;
         shm = (volatile FuzzInput*) consume_stdin(&input_len);
         shm->length = input_len;
+        is_stdin = 1;
     }
     
     initialized = 1;
+}
+
+void fuzz_input_cleanup (void) {
+    if (shm && !is_stdin) {
+        shmdt((void*) shm);
+        shm = NULL;
+    }
 }
 
 __attribute__((visibility("default")))

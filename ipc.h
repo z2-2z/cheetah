@@ -6,5 +6,6 @@ void ipc_write (void* buffer, size_t length);
 void ipc_read (void* buffer, size_t length);
 unsigned char ipc_recv_command (void);
 void ipc_send_status (unsigned char status);
+void ipc_cleanup (void);
 
 #endif /* __IPC_H */
