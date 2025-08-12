@@ -103,7 +103,7 @@ impl Forkserver {
         &self.mode
     }
     
-    fn handshake(child: Child, mut ipc: ForkserverIPC, mut timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
+    fn handshake(child: Child, mut ipc: ForkserverIPC, timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
         /* First, check client hello */
         let mut buffer = [0u8; 4];
         ipc.read(&mut buffer)?;
@@ -120,9 +120,6 @@ impl Forkserver {
         }
         
         let mode = ForkserverMode::from(client_hello & FORKSERVER_MODE_MASK);
-        if mode == ForkserverMode::Persistent && timeout < 1000 {
-            timeout = 1000;
-        }
         
         /* Then, send config */
         let config = ForkserverConfig::new(timeout, signal as i32 as u32, &crash_exit_codes);
@@ -260,9 +257,7 @@ impl ForkserverBuilder {
     }
     
     pub fn timeout_ms(mut self, timeout: u32) -> Self {
-        if timeout != 0 {
-            self.timeout = timeout;
-        }
+        self.timeout = timeout;
         self
     }
     
@@ -599,6 +594,7 @@ mod tests {
             .binary("../tests/test-persistent")
             .env("LD_LIBRARY_PATH", "..")
             .timeout_ms(5_000)
+            //.timeout_ms(0)
             .kill_signal("SIGKILL").unwrap()
             .debug_output(true)
             .use_shmem(4096)
@@ -617,6 +613,7 @@ mod tests {
         
         check(b"nothing", ExitKind::Ok);
         check(b"timeout", ExitKind::Timeout);
+        //check(b"timeout", ExitKind::Ok);
         check(b"nothing", ExitKind::Ok);
         check(b"uaf", ExitKind::Crash);
         check(b"nothing", ExitKind::Ok);
@@ -635,6 +632,7 @@ mod tests {
             .binary("../tests/test-forkserver")
             .env("LD_LIBRARY_PATH", "..")
             .timeout_ms(5_000)
+            //.timeout_ms(0)
             .kill_signal("SIGKILL").unwrap()
             .debug_output(true)
             .use_shmem(4096)
@@ -653,6 +651,7 @@ mod tests {
         
         check(b"nothing", ExitKind::Ok);
         check(b"timeout", ExitKind::Timeout);
+        //check(b"timeout", ExitKind::Ok);
         check(b"nothing", ExitKind::Ok);
         check(b"uaf", ExitKind::Crash);
         check(b"nothing", ExitKind::Ok);

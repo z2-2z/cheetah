@@ -15,7 +15,7 @@ int main (void) {
     if (!strcmp((char*) fuzz_input, "leak")) {
         malloc(1);
     } else if (!strcmp((char*) fuzz_input, "timeout")) {
-        sleep(9999999);
+        sleep(10);
     } else if (!strcmp((char*) fuzz_input, "uaf")) {
         char* buf = malloc(16);
         free(buf);

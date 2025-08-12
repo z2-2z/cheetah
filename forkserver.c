@@ -48,9 +48,13 @@ ForkserverStatus convert_status (ForkserverConfig* config, int status) {
 }
 
 static unsigned char wait_for_child (ForkserverConfig* config, pid_t child, sigset_t* signals, struct timespec* timeout) {
-    int status = 0;
-    errno = 0;
-    int r = sigtimedwait(signals, NULL, timeout);
+    int status = 0, r;
+    
+    if (config->timeout == 0) {
+        r = SIGCHLD;
+    } else {
+        r = sigtimedwait(signals, NULL, timeout);
+    }
     
     if (r == -1) {
         if (errno == EAGAIN) {

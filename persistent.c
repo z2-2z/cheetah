@@ -113,6 +113,11 @@ static int initialize_persistent_mode (void) {
 }
 
 static void set_timeout (void) {
+    // Disable timeout
+    if (config.timeout == 0) {
+        return;
+    }
+    
     time_t secs = config.timeout / 1000;
     suseconds_t usecs = (config.timeout % 1000) * 1000;
     
