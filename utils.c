@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
 #include "utils.h"
 #include "ipc.h"
@@ -29,12 +31,11 @@ void panic (ErrorSource source, const char* message) {
         }
     }
     
-    fprintf(stderr, "%s runtime failure: %s\n", source_str, message);
+    fprintf(stderr, "%s runtime failure: %s (errno=\"%s\")\n", source_str, message, strerror(errno));
     fflush(stderr);
     
     ipc_cleanup();
     fuzz_input_cleanup();
-    
     while (1) abort();
 }
 
