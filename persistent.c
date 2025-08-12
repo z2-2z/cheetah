@@ -30,10 +30,7 @@ static void check_timeout (int sig) {
     
     if (delta >= config.timeout - 100) {
         ipc_send_status(STATUS_TIMEOUT);
-        
-        while (1) {
-            raise(SIGKILL);
-        }
+        while (1) raise(SIGKILL);
     }
 }
 
@@ -41,20 +38,14 @@ __attribute__((noreturn))
 static void handle_crash (int sig) {
     (void) sig;
     ipc_send_status(STATUS_CRASH);
-    
-    while (1) {
-        raise(SIGKILL);
-    }
+    while (1) raise(SIGKILL);
 }
 
 __attribute__((noreturn))
 static void handle_interrupt (int sig) {
     (void) sig;
     ipc_send_status(STATUS_EXIT);
-    
-    while (1) {
-        raise(SIGKILL);
-    }
+    while (1) raise(SIGKILL);
 }
 
 static int initialize_persistent_mode (void) {
@@ -152,7 +143,7 @@ int spawn_persistent_loop (size_t iters) {
     int status;
     pid_t child = 0;
     
-    if (started && state == PERSISTENT_INIT) {
+    if (!iters || (started && state == PERSISTENT_INIT)) {
         return 0;
     }
     
@@ -188,12 +179,10 @@ int spawn_persistent_loop (size_t iters) {
                             panic(SOURCE_PERSISTENT, "Could not fork");
                         } else if (child == 0) {
                             state = PERSISTENT_ITER;
-                            
-                            if (iterations > 0) {
-                                iterations -= 1;
+                            iterations -= 1;
+                            if (clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == -1) {
+                                panic(SOURCE_PERSISTENT, "Could not get start time");
                             }
-                            
-                            clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
                             set_timeout();
                             return 1;
                         } else {
@@ -228,7 +217,9 @@ int spawn_persistent_loop (size_t iters) {
                     return 0;
                 }
                 case COMMAND_RUN: {
-                    clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
+                    if (clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == -1) {
+                        panic(SOURCE_PERSISTENT, "Could not get start time");
+                    }
                     return 1;
                 }
                 default: panic(SOURCE_PERSISTENT, "Invalid command in child");
