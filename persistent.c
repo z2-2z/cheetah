@@ -21,12 +21,10 @@ static PersistentState state = PERSISTENT_INIT;
 
 static void check_timeout (int sig) {
     (void) sig;
-    
     struct timespec now;
-    time_t delta;
     
     clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-    delta = duration_ms(&start_time, &now);
+    unsigned long delta = duration_ms(&start_time, &now);
     
     if (delta >= config.timeout - 100) {
         ipc_send_status(STATUS_TIMEOUT);

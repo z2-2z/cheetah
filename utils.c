@@ -36,24 +36,17 @@ void panic (ErrorSource source, const char* message) {
     
     ipc_cleanup();
     fuzz_input_cleanup();
-    while (1) abort();
+    abort();
 }
 
-time_t duration_ms (struct timespec* start, struct timespec* end) {
-    time_t delta_sec = end->tv_sec - start->tv_sec;
-    time_t delta_nsec;
+unsigned long duration_ms (struct timespec* start, struct timespec* end) {
+    long delta_sec = end->tv_sec - start->tv_sec;
+    long delta_nsec = end->tv_nsec - start->tv_nsec;
     
-    if (delta_sec == 0) {
-        delta_nsec = end->tv_nsec - start->tv_nsec;
-    } else {
-        delta_sec -= 1;
-        delta_nsec = end->tv_nsec + (1000000000UL - start->tv_nsec);
+    if (delta_nsec < 0) {
+        delta_sec--;
+        delta_nsec += 1000000000L;
     }
     
-    while (delta_nsec >= 1000000000L) {
-        delta_sec += 1;
-        delta_nsec -= 1000000000UL;
-    }
-    
-    return delta_sec * 1000UL + delta_nsec / 1000000UL;
+    return (unsigned long)delta_sec * 1000ULL + (unsigned long)delta_nsec / 1000000ULL;
 }

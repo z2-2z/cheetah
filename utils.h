@@ -12,6 +12,6 @@ typedef enum {
 } ErrorSource;
 
 __attribute__((noreturn)) void panic (ErrorSource source, const char* message);
-time_t duration_ms (struct timespec* start, struct timespec* end);
+unsigned long duration_ms (struct timespec* start, struct timespec* end);
 
 #endif

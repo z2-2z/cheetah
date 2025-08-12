@@ -12,7 +12,7 @@ typedef enum {
 } ForkserverMode;
 
 typedef struct {
-    int timeout; // in ms
+    unsigned int timeout; // in ms
     int signal;
     unsigned char exit_codes[32];
 } ForkserverConfig;
