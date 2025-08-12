@@ -31,12 +31,28 @@ impl Channel {
         Ok(())
     }
     
-    fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
+    #[inline(always)]
+    fn post(&mut self) -> Result<(), Error> {
+        unsafe {
+            if libc::sem_post(&mut self.semaphore as *mut libc::sem_t) == -1 {
+                return Err(Error::last_os_error("Could not write to channel"));
+            }
+        }
+        Ok(())
+    }
+    
+    #[inline(always)]
+    fn wait(&mut self) -> Result<(), Error> {
         unsafe {
             if libc::sem_wait(&mut self.semaphore as *mut libc::sem_t) == -1 {
                 return Err(Error::last_os_error("Could not read from channel"));
             }
         }
+        Ok(())
+    }
+    
+    fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
+        self.wait()?;
         
         let len = self.message_size;
         
@@ -58,36 +74,21 @@ impl Channel {
         self.message_size = len;
         self.message[..len].copy_from_slice(data);
         
-        unsafe {
-            if libc::sem_post(&mut self.semaphore as *mut libc::sem_t) == -1 {
-                return Err(Error::last_os_error("Could not write to channel"));
-            }
-        }
+        self.post()?;
         
         Ok(())
     }
     
     #[inline]
     fn read_byte(&mut self) -> Result<u8, Error> {
-        unsafe {
-            if libc::sem_wait(&mut self.semaphore as *mut libc::sem_t) == -1 {
-                return Err(Error::last_os_error("Could not read from channel"));
-            }
-        }
-        
+        self.wait()?;
         Ok(self.message[0])
     }
     
     #[inline]
     fn write_byte(&mut self, byte: u8) -> Result<(), Error> {
         self.message[0] = byte;
-        
-        unsafe {
-            if libc::sem_post(&mut self.semaphore as *mut libc::sem_t) == -1 {
-                return Err(Error::last_os_error("Could not write to channel"));
-            }
-        }
-        
+        self.post()?;
         Ok(())
     }
 }
@@ -109,19 +110,21 @@ pub(crate) struct ForkserverIPC {
 impl ForkserverIPC {
     pub(crate) fn new() -> Result<Self, Error> {
         let mut shmem_provider = UnixShMemProvider::new()?;
-        let mut shmem = shmem_provider.new_shmem(4096)?;
+        let shmem = shmem_provider.new_shmem(4096)?;
         unsafe {
             shmem.write_to_env("__FORKSERVER_SHM")?;
         }
-            
-        let channels = unsafe { &mut *shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        
+        let mut ret = Self {
+            shmem,
+            last_op: Op::None,
+        };
+        
+        let channels = ret.channels();
         channels.command_channel.init()?;
         channels.status_channel.init()?;
         
-        Ok(Self {
-            shmem,
-            last_op: Op::None,
-        })
+        Ok(ret)
     }
     
     #[allow(dead_code)]
@@ -134,32 +137,34 @@ impl ForkserverIPC {
         }
     }
     
+    #[inline(always)]
+    fn channels(&mut self) -> &mut IPCChannels {
+        unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() }
+    }
+    
     pub(crate) fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Read);
         
-        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
-        channels.status_channel.read(buffer)
+        self.channels().status_channel.read(buffer)
     }
     
     pub(crate) fn write(&mut self, data: &[u8]) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Write);
         
-        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
-        channels.command_channel.write(data)
+        self.channels().command_channel.write(data)
     }
     
     pub(crate) fn write_unchecked(&mut self, data: &[u8]) -> Result<(), Error> {
-        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
-        channels.command_channel.write(data)
+        self.channels().command_channel.write(data)
     }
     
     pub(crate) fn post_handshake(&mut self) {
         // Every write from now on will only be one byte so it suffices to the length only once, here
-        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
+        let channels = self.channels();
         channels.command_channel.message_size = 1;
-        assert_eq!(channels.status_channel.message_size, 1);
+        debug_assert_eq!(channels.status_channel.message_size, 1);
     }
     
     #[inline]
@@ -167,8 +172,7 @@ impl ForkserverIPC {
         #[cfg(debug_assertions)]
         self.check_op(Op::Read);
         
-        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
-        channels.status_channel.read_byte()
+        self.channels().status_channel.read_byte()
     }
     
     #[inline]
@@ -176,7 +180,17 @@ impl ForkserverIPC {
         #[cfg(debug_assertions)]
         self.check_op(Op::Write);
         
-        let channels = unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() };
-        channels.command_channel.write_byte(cmd)
+        self.channels().command_channel.write_byte(cmd)
+    }
+}
+
+impl Drop for ForkserverIPC {
+    fn drop(&mut self) {
+        let channels = self.channels();
+        
+        unsafe {
+            libc::sem_destroy(&mut channels.command_channel.semaphore as *mut libc::sem_t);
+            libc::sem_destroy(&mut channels.status_channel.semaphore as *mut libc::sem_t);
+        }
     }
 }
