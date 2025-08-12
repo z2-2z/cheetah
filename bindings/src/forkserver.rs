@@ -110,7 +110,7 @@ impl Forkserver {
     fn handshake(child: Child, mut ipc: ForkserverIPC, timeout: u32, signal: Signal, crash_exit_codes: Vec<u8>, shmem: Option<UnixShMem>) -> Result<Self, Error> {
         /* First, check client hello */
         let mut buffer = [0u8; 4];
-        ipc.read(&mut buffer)?;
+        ipc.recv_exact(&mut buffer)?;
         
         let client_hello = u32::from_ne_bytes(buffer);
         
@@ -133,10 +133,10 @@ impl Forkserver {
                 std::mem::size_of::<ForkserverConfig>(),
             )
         };
-        ipc.write(unsafe { &*ptr })?;
+        ipc.send_exact(unsafe { &*ptr })?;
         
         /* Check if config accepted */
-        ipc.read(&mut buffer[0..1])?;
+        ipc.recv_exact(&mut buffer[0..1])?;
         if buffer[0] == 0 {
             return Err(Error::unknown("Fuzz target signalled that forkserver config is not okay in handshake"));
         }
@@ -155,7 +155,7 @@ impl Forkserver {
     #[inline]
     fn stop_target(&mut self) -> Result<(), Error> {
         let buf = [ForkserverCommand::Stop as u8];
-        self.ipc.write_unchecked(&buf)?;
+        self.ipc.send_exact_unchecked(&buf)?;
         Ok(())
     }
     

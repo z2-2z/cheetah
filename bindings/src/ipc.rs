@@ -142,21 +142,21 @@ impl ForkserverIPC {
         unsafe { &mut *self.shmem.as_mut_ptr_of::<IPCChannels>().unwrap_unchecked() }
     }
     
-    pub(crate) fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
+    pub(crate) fn recv_exact(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Read);
         
         self.channels().status_channel.read(buffer)
     }
     
-    pub(crate) fn write(&mut self, data: &[u8]) -> Result<(), Error> {
+    pub(crate) fn send_exact(&mut self, data: &[u8]) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Write);
         
         self.channels().command_channel.write(data)
     }
     
-    pub(crate) fn write_unchecked(&mut self, data: &[u8]) -> Result<(), Error> {
+    pub(crate) fn send_exact_unchecked(&mut self, data: &[u8]) -> Result<(), Error> {
         self.channels().command_channel.write(data)
     }
     
@@ -167,7 +167,6 @@ impl ForkserverIPC {
         debug_assert_eq!(channels.status_channel.message_size, 1);
     }
     
-    #[inline]
     pub(crate) fn recv_status(&mut self) -> Result<u8, Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Read);
@@ -175,7 +174,6 @@ impl ForkserverIPC {
         self.channels().status_channel.read_byte()
     }
     
-    #[inline]
     pub(crate) fn send_command(&mut self, cmd: u8) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Write);
