@@ -3,6 +3,8 @@
 #include <unistd.h>
 
 #include "utils.h"
+#include "ipc.h"
+#include "input.h"
 
 __attribute__((noreturn))
 void panic (ErrorSource source, const char* message) {
@@ -29,6 +31,10 @@ void panic (ErrorSource source, const char* message) {
     
     fprintf(stderr, "%s runtime failure: %s\n", source_str, message);
     fflush(stderr);
+    
+    ipc_cleanup();
+    fuzz_input_cleanup();
+    
     while (1) abort();
 }
 
