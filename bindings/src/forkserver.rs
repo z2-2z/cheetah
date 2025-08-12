@@ -27,13 +27,15 @@ enum ForkserverStatus {
     Timeout = 2,
 }
 
-impl From<u8> for ForkserverStatus {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for ForkserverStatus {
+    type Error = Error;
+    
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Self::Exit,
-            1 => Self::Crash,
-            2 => Self::Timeout,
-            _ => panic!("Received invalid forkserver status: {value}"),
+            0 => Ok(Self::Exit),
+            1 => Ok(Self::Crash),
+            2 => Ok(Self::Timeout),
+            _ => Err(Error::unknown(format!("Received invalid forkserver status: {value}"))),
         }
     }
 }
@@ -49,9 +51,9 @@ impl ForkserverConfig {
     fn new(timeout: u32, signal: u32, exit_codes: &[u8]) -> Self {
         let mut bitmap = [0u8; 32];
         
-        for code in exit_codes {
-            let idx = *code / 8;
-            let bit = 1 << (*code % 8);
+        for &code in exit_codes {
+            let idx = code / 8;
+            let bit = 1 << (code % 8);
             bitmap[idx as usize] |= bit;
         }
         
@@ -70,12 +72,14 @@ pub enum ForkserverMode {
     Persistent = 2,
 }
 
-impl From<u32> for ForkserverMode {
-    fn from(value: u32) -> Self {
+impl TryFrom<u32> for ForkserverMode {
+    type Error = Error;
+    
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            1 => Self::Forkserver,
-            2 => Self::Persistent,
-            _ => panic!("Client sent invalid mode in forkserver handshake: {value}"),
+            1 => Ok(Self::Forkserver),
+            2 => Ok(Self::Persistent),
+            _ => Err(Error::unknown(format!("Client sent invalid mode in forkserver handshake: {value}"))),
         }
     }
 }
@@ -111,15 +115,15 @@ impl Forkserver {
         let client_hello = u32::from_ne_bytes(buffer);
         
         if client_hello & FORKSERVER_MAGIC_MASK != FORKSERVER_MAGIC {
-            panic!("Mismatching forkserver implementations");
+            return Err(Error::unknown("Mismatching forkserver implementations"));
         }
         
         let version = (client_hello & FORKSERVER_VERSION_MASK) >> 8;
         if version != 1 {
-            panic!("Invalid forkserver version. Client is on version {version}");
+            return Err(Error::unknown(format!("Unsupported forkserver version. Client is on version {version}, we are on version 1")));
         }
         
-        let mode = ForkserverMode::from(client_hello & FORKSERVER_MODE_MASK);
+        let mode = ForkserverMode::try_from(client_hello & FORKSERVER_MODE_MASK)?;
         
         /* Then, send config */
         let config = ForkserverConfig::new(timeout, signal as i32 as u32, &crash_exit_codes);
@@ -161,7 +165,7 @@ impl Forkserver {
         
         /* Collect status */
         let status = self.ipc.recv_status()?;
-        match ForkserverStatus::from(status) {
+        match ForkserverStatus::try_from(status)? {
             ForkserverStatus::Exit => Ok(ExitKind::Ok),
             ForkserverStatus::Crash => Ok(ExitKind::Crash),
             ForkserverStatus::Timeout => Ok(ExitKind::Timeout),
