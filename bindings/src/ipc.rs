@@ -51,7 +51,7 @@ impl Channel {
         Ok(())
     }
     
-    fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
+    fn recv(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
         self.wait()?;
         
         let len = self.message_size;
@@ -64,7 +64,7 @@ impl Channel {
         Ok(())
     }
     
-    fn write(&mut self, data: &[u8]) -> Result<(), Error> {
+    fn send(&mut self, data: &[u8]) -> Result<(), Error> {
         let len = data.len();
         
         if len > MAX_MESSAGE_SIZE {
@@ -80,13 +80,13 @@ impl Channel {
     }
     
     #[inline]
-    fn read_byte(&mut self) -> Result<u8, Error> {
+    fn recv_byte(&mut self) -> Result<u8, Error> {
         self.wait()?;
         Ok(self.message[0])
     }
     
     #[inline]
-    fn write_byte(&mut self, byte: u8) -> Result<(), Error> {
+    fn send_byte(&mut self, byte: u8) -> Result<(), Error> {
         self.message[0] = byte;
         self.post()?;
         Ok(())
@@ -146,18 +146,18 @@ impl ForkserverIPC {
         #[cfg(debug_assertions)]
         self.check_op(Op::Read);
         
-        self.channels().status_channel.read(buffer)
+        self.channels().status_channel.recv(buffer)
     }
     
     pub(crate) fn send_exact(&mut self, data: &[u8]) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Write);
         
-        self.channels().command_channel.write(data)
+        self.channels().command_channel.send(data)
     }
     
     pub(crate) fn send_exact_unchecked(&mut self, data: &[u8]) -> Result<(), Error> {
-        self.channels().command_channel.write(data)
+        self.channels().command_channel.send(data)
     }
     
     pub(crate) fn post_handshake(&mut self) {
@@ -171,14 +171,14 @@ impl ForkserverIPC {
         #[cfg(debug_assertions)]
         self.check_op(Op::Read);
         
-        self.channels().status_channel.read_byte()
+        self.channels().status_channel.recv_byte()
     }
     
     pub(crate) fn send_command(&mut self, cmd: u8) -> Result<(), Error> {
         #[cfg(debug_assertions)]
         self.check_op(Op::Write);
         
-        self.channels().command_channel.write_byte(cmd)
+        self.channels().command_channel.send_byte(cmd)
     }
 }
 

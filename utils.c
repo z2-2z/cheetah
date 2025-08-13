@@ -48,5 +48,5 @@ unsigned long duration_ms (struct timespec* start, struct timespec* end) {
         delta_nsec += 1000000000L;
     }
     
-    return (unsigned long)delta_sec * 1000ULL + (unsigned long)delta_nsec / 1000000ULL;
+    return (unsigned long)delta_sec * 1000UL + (unsigned long)delta_nsec / 1000000UL;
 }
