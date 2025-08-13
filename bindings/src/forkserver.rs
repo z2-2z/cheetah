@@ -276,12 +276,12 @@ impl ForkserverBuilder {
         self
     }
     
-    pub fn kill_signal(mut self, signal: &str) -> Option<Self> {
+    pub fn kill_signal(mut self, signal: &str) -> Result<Self, Error> {
         if let Ok(signal) = signal.parse::<Signal>() {
             self.signal = signal;
-            Some(self)
+            Ok(self)
         } else {
-            None
+            Err(Error::illegal_argument(format!("Invalid signal: {signal}")))
         }
     }
     
