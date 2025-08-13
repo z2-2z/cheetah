@@ -1,6 +1,6 @@
 use libafl::prelude::{Error, ExitKind};
 use libafl_bolts::prelude::{UnixShMemProvider, ShMemProvider, ShMem, UnixShMem, AsSliceMut};
-use std::ffi::OsString;
+use std::ffi::{OsString, OsStr};
 use nix::{
     sys::signal::{Signal, kill},
     unistd::Pid,
@@ -252,6 +252,17 @@ impl ForkserverBuilder {
     
     pub fn arg<S: Into<OsString>>(mut self, arg: S) -> Self {
         self.args.push(arg.into());
+        self
+    }
+    
+    pub fn args<IT, S>(mut self, args: IT) -> Self
+    where
+        IT: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        for arg in args {
+            self.args.push(arg.as_ref().to_owned());
+        }
         self
     }
     
