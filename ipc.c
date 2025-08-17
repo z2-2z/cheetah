@@ -66,7 +66,7 @@ static void debug_check_op (IpcOp op) {
 #endif
 }
 
-void ipc_send_all (void* buffer, size_t length) {
+void ipc_send_exact (void* buffer, size_t length) {
     debug_check_op(OP_WRITE);
     
     if (length > MAX_MESSAGE_SIZE) {
@@ -83,7 +83,7 @@ void ipc_send_all (void* buffer, size_t length) {
     }
 }
 
-void ipc_recv_all (void* buffer, size_t length) {
+void ipc_recv_exact (void* buffer, size_t length) {
     debug_check_op(OP_READ);
     
     while (sem_wait((sem_t*) &shm->command_channel.semaphore) == -1) {
