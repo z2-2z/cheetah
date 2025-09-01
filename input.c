@@ -78,7 +78,7 @@ void fuzz_input_cleanup (void) {
     }
 }
 
-__attribute__((visibility("default")))
+VISIBLE
 unsigned char* fuzz_input_data (void) {
     if (!shm) {
         fuzz_input_initialize();
@@ -91,7 +91,7 @@ unsigned char* fuzz_input_data (void) {
     }
 }
 
-__attribute__((visibility("default")))
+VISIBLE
 size_t fuzz_input_len (void) {
     if (!shm) {
         fuzz_input_initialize();

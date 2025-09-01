@@ -80,7 +80,7 @@ static unsigned char wait_for_child (ForkserverConfig* config, pid_t child, sigs
     }
 }
 
-__attribute__((visibility("default")))
+VISIBLE
 void spawn_forkserver (void) {
     ForkserverConfig config;
     sigset_t signals;

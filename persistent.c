@@ -141,7 +141,7 @@ static void set_timeout (void) {
     }
 }
 
-__attribute__((visibility("default")))
+VISIBLE
 int spawn_persistent_loop (size_t iters) {
     int status;
     pid_t child = -1;

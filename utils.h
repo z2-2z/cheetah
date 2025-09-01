@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <time.h>
 
+#define VISIBLE __attribute__((visibility("default")))
+
 typedef enum {
     SOURCE_FORKSERVER,
     SOURCE_PERSISTENT,
