@@ -158,8 +158,12 @@ impl Forkserver {
 
     fn kill_target(&mut self) -> Result<(), Error> {
         let buf = [ForkserverCommand::Stop as u8];
+        
+        // If we are in persistent mode we need one stop signal
+        // for the grandchild and one for the child
         self.ipc.send_exact_unchecked(&buf)?;
         self.ipc.send_exact_unchecked(&buf)?;
+        
         Ok(())
     }
     

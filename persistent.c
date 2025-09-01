@@ -144,7 +144,7 @@ static void set_timeout (void) {
 __attribute__((visibility("default")))
 int spawn_persistent_loop (size_t iters) {
     int status;
-    pid_t child = 0;
+    pid_t child = -1;
     
     if (!iters || (started && state == PERSISTENT_INIT)) {
         return 0;
@@ -196,6 +196,8 @@ int spawn_persistent_loop (size_t iters) {
                             if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
                                 ipc_send_status(convert_status(&config, status));
                             }
+                            
+                            child = -1;
                         }
                         
                         break;
