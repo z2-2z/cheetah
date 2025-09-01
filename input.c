@@ -52,13 +52,7 @@ static unsigned char* consume_stdin (size_t* final_length) {
     return buffer;
 }
 
-static void initialize_fuzz_data (void) {
-    static int initialized = 0;
-    
-    if (initialized) {
-        return;
-    }
-    
+static void fuzz_input_initialize (void) {
     char* value = getenv(FUZZ_INPUT_SHM_ENV_VAR);
     
     if (value) {
@@ -75,8 +69,6 @@ static void initialize_fuzz_data (void) {
         shm->length = input_len;
         is_stdin = 1;
     }
-    
-    initialized = 1;
 }
 
 void fuzz_input_cleanup (void) {
@@ -88,7 +80,9 @@ void fuzz_input_cleanup (void) {
 
 __attribute__((visibility("default")))
 unsigned char* fuzz_input_data (void) {
-    initialize_fuzz_data();
+    if (!shm) {
+        fuzz_input_initialize();
+    }
     
     if (shm->length == 0) {
         return NULL;
@@ -99,6 +93,9 @@ unsigned char* fuzz_input_data (void) {
 
 __attribute__((visibility("default")))
 size_t fuzz_input_len (void) {
-    initialize_fuzz_data();
+    if (!shm) {
+        fuzz_input_initialize();
+    }
+    
     return shm->length;
 }
