@@ -3,7 +3,7 @@
 
 #include <signal.h>
 
-#define FORKSERVER_MAGIC   0xDEAD0000
+#define FORKSERVER_MAGIC 0xDEAD0000
 #define FORKSERVER_VERSION 1
 
 typedef enum {
@@ -33,4 +33,4 @@ extern int started;
 int forkserver_handshake (ForkserverMode mode, ForkserverConfig* config);
 ForkserverStatus convert_status (ForkserverConfig* config, int status);
 
-#endif
+#endif /* __FORKSERVER_H */

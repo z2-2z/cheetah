@@ -16,4 +16,4 @@ typedef enum {
 __attribute__((noreturn)) void panic (ErrorSource source, const char* message);
 unsigned long duration_ms (struct timespec* start, struct timespec* end);
 
-#endif
+#endif /* __UTILS_H */
