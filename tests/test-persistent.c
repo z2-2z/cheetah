@@ -7,7 +7,7 @@
 
 int main (void) {
     while (spawn_persistent_loop(2)) {
-        unsigned char* fuzz_input = fuzz_input_data();
+        unsigned char* fuzz_input = fuzz_input_ptr();
         size_t len = fuzz_input_len();
         fuzz_input[len] = 0;
         

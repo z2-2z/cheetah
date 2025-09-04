@@ -77,18 +77,14 @@ void fuzz_input_cleanup (void) {
         shm = NULL;
     }
 }
-
+1
 VISIBLE
-unsigned char* fuzz_input_data (void) {
+unsigned char* fuzz_input_ptr (void) {
     if (!shm) {
         fuzz_input_initialize();
     }
     
-    if (shm->length == 0) {
-        return NULL;
-    } else {
-        return (unsigned char*) &shm->data[0];
-    }
+    return (unsigned char*) &shm->data[0];
 }
 
 VISIBLE

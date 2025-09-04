@@ -4,7 +4,7 @@
 
 int main (void) {
     while (spawn_persistent_loop(MAX_ITERATIONS)) {
-        unsigned char* buf = fuzz_input_data();
+        unsigned char* buf = fuzz_input_ptr();
         size_t len = fuzz_input_len();
         
         if (buf) {
