@@ -33,7 +33,7 @@ Then, you can make use of the following API:
 | `MAX_ITERATIONS` | Convenience definition to do as many iterations as possible in `spawn_persistent_loop()` |
 | `unsigned char* fuzz_input_ptr (void)` | Get a pointer to the fuzz input when it is being passed over shared memory. Equivalent to `__AFL_FUZZ_TESTCASE_BUF`. |
 | `size_t fuzz_input_len (void)` | Length of fuzz input. Equivalent to `__AFL_FUZZ_TESTCASE_LEN`. Must be called AFTER `spawn_forkserver()` or `spawn_persistent_loop()`. |
-| `size_t fuzz_input_capacity (void)` | Capacity of the shared memory for fuzz inputs. Note that this does not correspond to the number of bytes in the shared memory but to the maximum input size of the fuzzer. The actual size of the shared memory might be larger than this value. |
+| `size_t fuzz_input_max_len (void)` | Maximum length that a fuzz input can have. |
 
 ## Benchmark
 On my `Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz` I get the following results when measuring the overhead of the

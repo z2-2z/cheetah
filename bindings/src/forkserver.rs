@@ -87,7 +87,7 @@ impl TryFrom<u32> for ForkserverMode {
 #[repr(C)]
 struct InputChannelMetadata {
     length: usize,
-    capacity: usize,
+    max_length: usize,
 }
 
 #[derive(Debug)]
@@ -190,7 +190,7 @@ impl Forkserver {
         unsafe {
             let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
             
-            length = std::cmp::min(data.len(), header.capacity);
+            length = std::cmp::min(data.len(), header.max_length);
             header.length = length;
         }
         shmem.as_slice_mut()[OFFSET..OFFSET + length].copy_from_slice(&data[..length]);
@@ -209,7 +209,7 @@ impl Forkserver {
             let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
             header.length = std::cmp::min(
                 length,
-                header.capacity,
+                header.max_length,
             );
         }
     }
@@ -315,7 +315,7 @@ impl ForkserverBuilder {
             let mut shmem = shmem_provider.new_shmem(size_of::<InputChannelMetadata>() + *shmem_size)?;
             unsafe {
                 let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
-                header.capacity = *shmem_size;
+                header.max_length = *shmem_size;
                 
                 shmem.write_to_env(FUZZ_INPUT_SHM_ENV_VAR)?;
             }

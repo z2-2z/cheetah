@@ -16,14 +16,14 @@
 
 typedef struct {
     size_t length;
-    size_t capacity;
+    size_t max_length;
     unsigned char data[];
 } FuzzInput;
 
 static volatile FuzzInput* shm = NULL;
 static int is_stdin = 0;
 
-static unsigned char* consume_stdin (size_t* final_length, size_t* final_capacity) {
+static unsigned char* consume_stdin (size_t* final_length, size_t* final_max_length) {
     size_t length = sizeof(FuzzInput);
     size_t capacity = PAGE_SIZE;
     unsigned char* buffer = mmap(NULL, capacity, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -53,7 +53,7 @@ static unsigned char* consume_stdin (size_t* final_length, size_t* final_capacit
     }
     
     *final_length = length - sizeof(FuzzInput);
-    *final_capacity = capacity - sizeof(FuzzInput);
+    *final_max_length = capacity - sizeof(FuzzInput);
     return buffer;
 }
 
@@ -69,10 +69,10 @@ static void fuzz_input_initialize (void) {
         }
     } else {
         /* Use stdin as input */
-        size_t input_len = 0, capacity = 0;
-        shm = (volatile FuzzInput*) consume_stdin(&input_len, &capacity);
+        size_t input_len = 0, max_len = 0;
+        shm = (volatile FuzzInput*) consume_stdin(&input_len, &max_len);
         shm->length = input_len;
-        shm->capacity = capacity;
+        shm->max_length = max_len;
         is_stdin = 1;
     }
 }
@@ -103,10 +103,10 @@ size_t fuzz_input_len (void) {
 }
 
 VISIBLE
-size_t fuzz_input_capacity (void) {
+size_t fuzz_input_max_len (void) {
     if (!shm) {
         fuzz_input_initialize();
     }
     
-    return shm->capacity;
+    return shm->max_length;
 }
