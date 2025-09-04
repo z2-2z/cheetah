@@ -3,6 +3,9 @@
 #include "include/fuzzer-runtime.h"
 
 int main (void) {
+    size_t capacity = fuzz_input_capacity();
+    printf("Capacity = %lu\n", capacity);
+    
     while (spawn_persistent_loop(MAX_ITERATIONS)) {
         unsigned char* buf = fuzz_input_ptr();
         size_t len = fuzz_input_len();

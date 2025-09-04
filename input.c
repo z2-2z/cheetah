@@ -16,31 +16,35 @@
 
 typedef struct {
     size_t length;
+    size_t capacity;
     unsigned char data[];
 } FuzzInput;
 
 static volatile FuzzInput* shm = NULL;
 static int is_stdin = 0;
 
-static unsigned char* consume_stdin (size_t* final_length) {
+static unsigned char* consume_stdin (size_t* final_length, size_t* final_capacity) {
     size_t length = sizeof(FuzzInput);
-    unsigned char* buffer = mmap(NULL, length + PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    size_t capacity = PAGE_SIZE;
+    unsigned char* buffer = mmap(NULL, capacity, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     
     if (!buffer || buffer == (void*) -1) {
         panic(SOURCE_FUZZ_INPUT, "Could not mmap");
     }
     
     while (1) {
-        ssize_t r = read(0, &buffer[length], PAGE_SIZE);
+        size_t free = capacity - length;
+        ssize_t r = read(0, &buffer[length], free);
         
         if (r < 0) {
             panic(SOURCE_FUZZ_INPUT, "Cannot read from stdin");
-        } else if (r < PAGE_SIZE) {
+        } else if ((size_t) r < free) {
             length += r;
             break;
         } else {
             length += r;
-            buffer = mremap(buffer, length, length + PAGE_SIZE, MREMAP_MAYMOVE);
+            capacity += PAGE_SIZE;
+            buffer = mremap(buffer, length, capacity, MREMAP_MAYMOVE);
             
             if (!buffer || buffer == (void*) -1) {
                 panic(SOURCE_FUZZ_INPUT, "Could not mremap");
@@ -49,6 +53,7 @@ static unsigned char* consume_stdin (size_t* final_length) {
     }
     
     *final_length = length - sizeof(FuzzInput);
+    *final_capacity = capacity - sizeof(FuzzInput);
     return buffer;
 }
 
@@ -64,9 +69,10 @@ static void fuzz_input_initialize (void) {
         }
     } else {
         /* Use stdin as input */
-        size_t input_len = 0;
-        shm = (volatile FuzzInput*) consume_stdin(&input_len);
+        size_t input_len = 0, capacity = 0;
+        shm = (volatile FuzzInput*) consume_stdin(&input_len, &capacity);
         shm->length = input_len;
+        shm->capacity = capacity;
         is_stdin = 1;
     }
 }
@@ -77,7 +83,7 @@ void fuzz_input_cleanup (void) {
         shm = NULL;
     }
 }
-1
+
 VISIBLE
 unsigned char* fuzz_input_ptr (void) {
     if (!shm) {
@@ -94,4 +100,13 @@ size_t fuzz_input_len (void) {
     }
     
     return shm->length;
+}
+
+VISIBLE
+size_t fuzz_input_capacity (void) {
+    if (!shm) {
+        fuzz_input_initialize();
+    }
+    
+    return shm->capacity;
 }

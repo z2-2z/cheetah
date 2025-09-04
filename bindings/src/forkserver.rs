@@ -87,6 +87,7 @@ impl TryFrom<u32> for ForkserverMode {
 #[repr(C)]
 struct InputChannelMetadata {
     length: usize,
+    capacity: usize,
 }
 
 #[derive(Debug)]
@@ -182,16 +183,14 @@ impl Forkserver {
     
     pub fn input_channel_write<D: AsRef<[u8]>>(&mut self, data: D) -> usize {
         const OFFSET: usize = size_of::<InputChannelMetadata>();
-        
+        let length;
         let data = data.as_ref();
         let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
-        let length = std::cmp::min(
-            shmem.len() - OFFSET,
-            data.len()
-        );
         
         unsafe {
             let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
+            
+            length = std::cmp::min(data.len(), header.capacity);
             header.length = length;
         }
         shmem.as_slice_mut()[OFFSET..OFFSET + length].copy_from_slice(&data[..length]);
@@ -208,7 +207,10 @@ impl Forkserver {
         let shmem = self.shmem.as_mut().expect("Tried to write into input channel even though it wasn't setup");
         unsafe {
             let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
-            header.length = length;
+            header.length = std::cmp::min(
+                length,
+                header.capacity,
+            );
         }
     }
 }
@@ -303,15 +305,18 @@ impl ForkserverBuilder {
     }
     
     pub fn use_shmem(mut self, max_input_size: usize) -> Self {
-        self.shmem_size = Some(std::cmp::max(4096, max_input_size));
+        self.shmem_size = Some(max_input_size);
         self
     }
     
     fn setup_shm(&self) -> Result<Option<UnixShMem>, Error> {
         if let Some(shmem_size) = &self.shmem_size {
             let mut shmem_provider = UnixShMemProvider::new()?;
-            let shmem = shmem_provider.new_shmem(size_of::<InputChannelMetadata>() + *shmem_size)?;
+            let mut shmem = shmem_provider.new_shmem(size_of::<InputChannelMetadata>() + *shmem_size)?;
             unsafe {
+                let header = &mut *shmem.as_mut_ptr_of::<InputChannelMetadata>().unwrap_unchecked();
+                header.capacity = *shmem_size;
+                
                 shmem.write_to_env(FUZZ_INPUT_SHM_ENV_VAR)?;
             }
             Ok(Some(shmem))
@@ -597,7 +602,7 @@ mod tests {
             .timeout_ms(60_000)
             .kill_signal("SIGKILL").unwrap()
             .debug_output(true)
-            .use_shmem(4096)
+            .use_shmem(1337)
             .spawn().unwrap();
         
         forkserver.input_channel_write(b"Test123");
