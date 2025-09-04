@@ -110,3 +110,18 @@ size_t fuzz_input_max_len (void) {
     
     return shm->max_length;
 }
+
+VISIBLE
+size_t fuzz_input_capacity (void) {
+    if (!shm) {
+        fuzz_input_initialize();
+    }
+    
+    size_t total_length = sizeof(FuzzInput) + shm->max_length;
+    
+    if (total_length % PAGE_SIZE) {
+        total_length += PAGE_SIZE - (total_length % PAGE_SIZE);
+    }
+    
+    return total_length;
+}

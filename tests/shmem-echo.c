@@ -4,7 +4,8 @@
 
 int main (void) {
     size_t max_len = fuzz_input_max_len();
-    printf("Max. Length = %lu\n", max_len);
+    size_t capacity = fuzz_input_capacity();
+    printf("Max. Length = %lu | Capacity = %lu\n", max_len, capacity);
     
     while (spawn_persistent_loop(MAX_ITERATIONS)) {
         unsigned char* buf = fuzz_input_ptr();
