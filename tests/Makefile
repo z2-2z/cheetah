@@ -1,7 +1,7 @@
 CC=clang
 CFLAGS=-g -O0 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined,address -fsanitize-trap=all -I..
-LDFLAGS=-L.. -lruntime
-LIBRUNTIME=../libruntime.so
+LDFLAGS=-L../runtime -lruntime
+LIBRUNTIME=../runtime/libruntime.so
 
 BINARIES=test-persistent hybrid-client shmem-echo test-forkserver
 
@@ -21,7 +21,7 @@ hybrid-client: hybrid-client.c
 	$(AFL_PATH)/afl-clang-fast -o $@ -I../include -g -O0 $< $(LDFLAGS)
 
 $(LIBRUNTIME):
-	$(MAKE) -C ..
+	$(MAKE) -C ../runtime
 
 .PHONY: clean
 clean:
