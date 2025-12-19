@@ -5,7 +5,7 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 
-#include "include/fuzzer-runtime.h"
+#include "fuzzer-runtime.h"
 #include "utils.h"
 
 #define FUZZ_INPUT_SHM_ENV_VAR "__FUZZ_INPUT_SHM"

@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#include "include/fuzzer-runtime.h"
+#include "fuzzer-runtime.h"
 #include "forkserver.h"
 #include "utils.h"
 #include "ipc.h"

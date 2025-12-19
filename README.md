@@ -11,7 +11,7 @@ over shared memory.
 ## Usage
 Create `libruntime.so` by invoking
 ```
-make
+make -C runtime
 ```
 optionally with custom `CC` and `CFLAGS` environment variables.
 

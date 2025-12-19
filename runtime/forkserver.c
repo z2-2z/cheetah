@@ -4,7 +4,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-#include "include/fuzzer-runtime.h"
+#include "fuzzer-runtime.h"
 #include "forkserver.h"
 #include "utils.h"
 #include "ipc.h"
